@@ -1,0 +1,90 @@
+/*
+   App.css - Basic Layout Styles
+   Using CSS Grid/Flexbox to achieve the 4-panel layout without external libraries.
+*/
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #1f2937; /* gray-800 */
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+
+.col-sim {
+  display: flex;
+  flex-direction: column;
+  width: 65%;
+  height: 100%;
+  gap: 8px;
+}
+
+.col-support {
+  display: flex;
+  flex-direction: column;
+  width: 35%;
+  height: 100%;
+  gap: 8px;
+}
+
+.panel-container {
+  border: 1px solid #9ca3af; /* gray-400 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.panel-title {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+  z-index: 10;
+}
+
+.panel-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Specific Panel Styling */
+.status-panel {
+  height: 65%;
+  background-color: #f3f4f6; /* gray-100 */
+}
+
+.control-panel {
+  height: 35%;
+  background-color: #e5e7eb; /* gray-200 */
+}
+
+.advisor-panel {
+  height: 40%;
+  background-color: #ffffff;
+  opacity: 0.7;
+}
+
+.procedure-panel {
+  height: 60%;
+  background-color: #ffffff;
+  opacity: 0.7;
+}
