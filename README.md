@@ -30,8 +30,8 @@
 | :--- | :--- | :--- |
 | **Top-Left** | **Status/Display Panel** | **(Read-Only)** Simplified mimic. Shows FW Flow, SG Level, Reactor Power, Turbine Speed. |
 | **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls (Toggles, Sliders, Buttons). |
-| **Top-Right** | **AI Advisor** | *(Placeholder)* Future LLM-based decision support. |
-| **Bottom-Right** | **Procedures** | *(Placeholder)* Interactive procedures/Knowledge Graph. |
+| **Top-Right** | **AI Advisor** | Future LLM-based decision support. |
+| **Bottom-Right** | **Procedures** | Interactive procedures/Knowledge Graph. |
 
 ---
 
@@ -84,10 +84,20 @@ Critical for building the dataset for the Knowledge Graph.
 ---
 
 ## 5. How to Run
-```bash
-# Install dependencies
-npm install
 
-# Start Development Server
+### Development Setup
+This project uses **Vite** with **Tailwind CSS**. Due to recent updates in the Tailwind ecosystem, we use `@tailwindcss/postcss`.
+
+```bash
+# 1. Install dependencies (including Tailwind and PostCSS)
+npm install
+npm install -D tailwindcss @tailwindcss/postcss postcss autoprefixer
+
+# 2. Start Development Server
 npm run dev
+```
+
+### Build for Production
+```bash
+npm run build
 ```
