@@ -19,10 +19,10 @@ export const StatusPanel = () => {
 
         {/* Alarms Header */}
         <div style={{ display: 'flex', gap: '5px', width: '100%', marginBottom: '10px' }}>
-          <AlarmTile label="FW LOW FLOW" active={state.fw_flow < 800 && state.reactor_power > 10} />
-          <AlarmTile label="SG LOW LEVEL" active={state.sg_level < 30} />
-          <AlarmTile label="SG HIGH PRESS" active={state.sg_pressure > 7.5} />
-          <AlarmTile label="RX TRIP" active={state.reactor_tripped} />
+          <AlarmTile label="FW LOW FLOW" active={state.alarms.includes('FW LOW FLOW')} />
+          <AlarmTile label="SG LOW LEVEL" active={state.alarms.includes('SG LOW LEVEL')} />
+          <AlarmTile label="SG HIGH LEVEL" active={state.alarms.includes('SG HIGH LEVEL')} />
+          <AlarmTile label="RX TRIP" active={state.alarms.includes('RX TRIPPED')} />
         </div>
 
         {/* Main Display Area (Split Diagram & Gauges) */}
@@ -39,10 +39,10 @@ export const StatusPanel = () => {
             <ValueDisplay label="Turbine Speed" value={state.turbine_speed.toFixed(0)} unit="rpm" />
             <div style={{ height: '10px' }} />
             <ValueDisplay label="SG Level" value={state.sg_level.toFixed(1)} unit="%"
-              alert={state.sg_level < 30 || state.sg_level > 70} />
+              alert={state.alarms.includes('SG LOW LEVEL') || state.alarms.includes('SG HIGH LEVEL')} />
             <ValueDisplay label="SG Pressure" value={state.sg_pressure.toFixed(2)} unit="MPa" />
             <ValueDisplay label="FW Flow" value={state.fw_flow.toFixed(0)} unit="kg/s"
-              alert={state.fw_flow < 800 && state.reactor_power > 10} />
+              alert={state.alarms.includes('FW LOW FLOW')} />
           </div>
 
         </div>
@@ -104,7 +104,7 @@ const Schematic = ({ state }: { state: any }) => {
       {/* FW CV */}
       <path d="M 140 140 L 150 160 L 160 140 Z" fill="none" stroke="black" />
       <path d="M 140 160 L 150 140 L 160 160 Z" fill="none" stroke="black" />
-      <text x="150" y="135" textAnchor="middle" fontSize="8">CV {(state.fw_cv_open*100).toFixed(0)}%</text>
+      <text x="150" y="135" textAnchor="middle" fontSize="8">CV {(state.fw_cv*100).toFixed(0)}%</text>
 
       {/* Line to SG */}
       <line x1="160" y1="150" x2="200" y2="150" stroke={fwColor} strokeWidth="3" />

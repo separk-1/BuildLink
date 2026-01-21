@@ -7,7 +7,7 @@ export const ControlPanel = () => {
     fw_pump_on, togglePump,
     fw_iv_open, toggleFwIv,
     msiv_open, toggleMsiv,
-    fw_cv_open, setFwCv,
+    fw_cv, setFwCv,
     tripReactor, tripTurbine
   } = useSimulationStore();
 
@@ -70,11 +70,11 @@ export const ControlPanel = () => {
 
         {/* Middle Row: Sliders */}
         <div style={{ display: 'flex', width: '100%', gap: '20px' }}>
-          <ControlGroup label={`FW CONTROL VALVE (${(fw_cv_open * 100).toFixed(0)}%)`}>
+          <ControlGroup label={`FW CONTROL VALVE (${(fw_cv * 100).toFixed(0)}%)`}>
             <input
               type="range"
               min="0" max="1" step="0.01"
-              value={fw_cv_open}
+              value={fw_cv}
               onChange={(e) => setFwCv(parseFloat(e.target.value))}
               style={{ width: '100%', cursor: 'pointer' }}
             />
