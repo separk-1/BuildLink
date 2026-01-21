@@ -1,110 +1,107 @@
 # NPP Web Simulator (LOFW Prototype)
 
-## 1. Project Overview
-This project is a **web-based Nuclear Power Plant (NPP) simulator prototype** designed to simulate a **Loss of Feedwater (LOFW)** scenario.
+![Design Reference](./design_reference.png)
 
-The primary goal is to provide a lightweight, accessible platform for industry partners and decision-makers to test the system without the need for executable installations. The simulator focuses on capturing operator decision-making processes through detailed logging, which will facilitate future analysis using Knowledge Graphs and AI.
+## 1. Project Context & Objectives
+**Goal:** Develop a **Web-based Nuclear Power Plant (NPP) Simulator Prototype** for the **Loss of Feedwater (LOFW)** scenario.
 
-**Key Design Philosophy:**
-- **Web-First:** Accessibility for testing and demonstration.
-- **MVP Scope:** Focused strictly on the LOFW scenario (Loss of Feedwater).
-- **Simplified Physics:** Uses a "training-grade" dynamic model (simplified differential equations) rather than high-fidelity engineering simulations, focusing on decision points.
-- **Data-Driven:** Comprehensive logging of operator actions and system states for post-analysis.
+**Why Web-Based?**
+- To facilitate easy testing and feedback from industry partners and decision-makers without the friction of installing executable software.
+- If the prototype is successful, it can be expanded into a full-scale web or desktop application.
+
+**Design Decision: Custom Panel vs. RANCOR**
+- We decided **not** to use the RANCOR system directly because:
+    1.  It is complex and proprietary.
+    2.  We need a generalized, simplified interface for testing specific scenarios.
+- Instead, we are building a custom **4-panel interface** focusing only on the elements relevant to LOFW.
 
 ---
 
-## 2. System Architecture
+## 2. Implementation Plan (MVP)
+This project follows a rapid prototyping schedule:
 
-The project is built as a Single Page Application (SPA) to ensure responsiveness and ease of deployment.
+- **Day 1: Layout & Controls**
+    - [x] Implement 4-panel grid layout.
+    - [x] Create static Status Panel (P&ID) and Control Panel UI.
+    - [x] Implement interactive toggles and sliders (UI only).
+- **Day 2: Physics & Dynamics**
+    - [x] Implement "Fake Physics" loop (10Hz).
+    - [x] Model Feedwater Flow dynamics (`fw_flow` logic).
+    - [x] Model SG Level response to flow and steam output.
+    - [x] Implement Alarm thresholds (e.g., `FW LOW FLOW`).
+- **Day 3: Logging & Data**
+    - [x] Implement Event Logging (Operator actions).
+    - [x] Implement State Snapshots (1Hz data capture).
+    - [ ] Generate Incident Report (JSON export ready).
 
-- **Frontend:** React.js
-- **State Management:** Zustand (for managing physics state and simulation clock)
-- **Visualization:** Canvas API / SVG for P&ID (Piping and Instrumentation Diagram)
-- **Deployment:** Static web hosting (e.g., Vercel, Netlify)
+---
+
+## 3. System Architecture
+
+- **Frontend:** React + Vite (Fast prototyping).
+- **State Management:** Zustand (Physics loop and global state).
+- **Backend:** Python (FastAPI) - *Optional for MVP, setup included for future data storage.*
 
 ### Screen Layout (4-Split)
 1.  **Top-Left: Status/Display Panel** (Read-only)
-    -   System schematic (P&ID).
-    -   Key Gauges: FW Flow, SG Level, SG Pressure, Rx Power, Turbine Speed.
-    -   Alarm Tiles.
+    -   System schematic with dynamic flow coloring.
+    -   Key Gauges: `fw_flow`, `sg_level`, `sg_pressure`, `reactor_power`.
+    -   Alarm Tiles (e.g., FW LOW FLOW, SG LOW LEVEL).
 2.  **Bottom-Left: Control Panel** (Operator Inputs)
-    -   **Toggles:** FW Pump (ON/OFF), FW Isolation Valve, Main Steam IV.
-    -   **Sliders/Knobs:** FW Control Valve (0-100%).
-    -   **Buttons:** Manual Reactor Trip, Turbine Trip.
-3.  **Top-Right: AI Advisor** (Placeholder for MVP)
-    -   Future integration for LLM-based decision support.
-4.  **Bottom-Right: Procedure/Knowledge Graph** (Placeholder for MVP)
-    -   Static procedure display for LOFW.
+    -   **Toggles:** FW Pump, FW Isolation Valve, Main Steam IV.
+    -   **Control:** FW Control Valve (Slider 0-100%).
+    -   **Trips:** Reactor Trip, Turbine Trip.
+3.  **Top-Right: AI Advisor** (Placeholder)
+    -   Space reserved for future LLM-based decision support.
+4.  **Bottom-Right: Procedure/Knowledge Graph** (Placeholder)
+    -   Space reserved for digitized procedures and regulation checks.
 
 ---
 
-## 3. Simulation Logic (Physics Engine)
+## 4. Simulation Logic ("Fake Physics")
+The simulation prioritizes **operator decision-making fidelity** over engineering precision.
 
-The simulation runs on a client-side tick (e.g., 10Hz). It models the interaction between the Feedwater System and the Steam Generator.
+### Key Equations (Simplified)
+- **Feedwater Flow:**
+  `fw_flow = k * pump_on * iv_open * cv_pos * (1 - malfunction_severity)`
+- **SG Level:**
+  `d(sg_level) = (fw_flow - steam_out) * scale_factor`
+- **Steam Out:**
+  Proportional to `reactor_power`. Drops to 0 if MSIV is closed.
 
-### Key State Variables
+### Key Variables
 | Variable | Unit | Description |
 | :--- | :--- | :--- |
-| `fw_flow` | kg/s | Feedwater flow rate into the Steam Generator. |
-| `sg_level` | % | Water level in the Steam Generator (Critical control parameter). |
+| `fw_flow` | kg/s | Feedwater flow rate. |
+| `sg_level` | % | Steam Generator water level (Main control target). |
 | `sg_pressure` | MPa | Steam pressure. |
-| `reactor_power`| % | Core thermal power. |
-| `turbine_speed`| rpm | Turbine rotation speed. |
-
-### Control Inputs
-- `fw_pump_on` (Boolean)
-- `fw_cv_position` (Float 0.0 - 1.0)
-- `fw_iv_open` (Boolean)
-- `msiv_open` (Boolean)
-- `reactor_trip` (Boolean)
-
-### Failure Mode: Loss of Feedwater (LOFW)
-The simulator introduces faults (e.g., valve failure or pump trip) that degrade `fw_flow`. The operator must detect the anomaly via alarms (`FW LOW FLOW`, `SG LOW LEVEL`) and execute the rapid shutdown (Trip) procedure if automatic controls fail.
+| `reactor_power`| % | Core power. |
+| `turbine_speed`| rpm | Turbine speed. |
 
 ---
 
-## 4. Logging & Data Analysis
+## 5. Logging & Analysis
+Crucial for analyzing human error and procedure compliance.
 
-To support the research goal of analyzing operator errors and procedure compliance, the system records two types of logs:
-
-1.  **Event Logs:** Records discrete operator actions.
-    -   Format: `{ timestamp, action_type, target_component, value }`
-    -   Example: `[10:05:21] ACTION: SET_FW_CV value=0.65`
-2.  **State Snapshots:** Periodic records of system physics (1Hz).
-    -   Format: `{ timestamp, fw_flow, sg_level, sg_pressure, alarms_active }`
-
-*MVP implementation allows downloading these logs as a JSON file.*
-
----
-
-## 5. Development Roadmap
-
-### Phase 1: Foundation (Current)
-- [x] Project Setup (React + Vite).
-- [x] Basic Layout Implementation (4-panel grid).
-- [x] "Fake Physics" Loop Implementation.
-
-### Phase 2: Core Features
-- [x] Interactive Control Panel (Sliders, Toggles).
-- [x] Dynamic Visualization (Gauges, Flow lines changing color).
-- [x] Alarm Logic Implementation.
-
-### Phase 3: Data & Refinement
-- [x] Logging System (JSON Export).
-- [ ] Incident Report Generation.
-- [ ] UI Polish for deployment.
+1.  **Event Logs:** Records discrete actions (e.g., `SET_FW_CV 0.65`, `TOGGLE_PUMP`).
+2.  **State Snapshots:** 1Hz dumps of all system variables.
+3.  **Future Work:**
+    -   Integration with Knowledge Graph for automated incident analysis.
+    -   Comparison against standard operating procedures.
 
 ---
 
 ## 6. Setup & Run
 
+### Frontend (Simulator)
 ```bash
-# Install dependencies
 npm install
-
-# Run development server
 npm run dev
+```
 
-# Build for production
-npm run build
+### Backend (Optional / Future)
+```bash
+# Requires Python 3.8+
+pip install -r requirements.txt
+python3 setup.py install
 ```
