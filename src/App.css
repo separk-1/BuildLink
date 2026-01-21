@@ -17,7 +17,8 @@
 
   /* Dimensions */
   --panel-gap: 8px;
-  --radius: 4px;
+  --radius: 6px;
+  --header-height: 28px;
 }
 
 * {
@@ -35,24 +36,34 @@ body {
   width: 100vw;
 }
 
-/* Layout */
+/* Main Layout Grid */
 .app-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: 65fr 35fr; /* 65% Sim, 35% Support */
+  grid-template-rows: 1fr;
   width: 100%;
   height: 100%;
   padding: var(--panel-gap);
   gap: var(--panel-gap);
 }
 
-.col-sim, .col-support {
-  display: flex;
-  flex-direction: column;
+.col-sim {
+  display: grid;
+  grid-template-rows: 65fr 35fr; /* 65% Status, 35% Control */
   gap: var(--panel-gap);
   height: 100%;
+  min-height: 0; /* Prevent overflow */
 }
-.col-sim { flex: 65; }
-.col-support { flex: 35; }
 
+.col-support {
+  display: grid;
+  grid-template-rows: 40fr 60fr; /* 40% Advisor, 60% Procedures */
+  gap: var(--panel-gap);
+  height: 100%;
+  min-height: 0;
+}
+
+/* Panel Window Style */
 .panel-container {
   background-color: var(--bg-panel);
   border: 1px solid var(--border-color);
@@ -61,38 +72,38 @@ body {
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
 }
 
-.status-panel { height: 65%; }
-.control-panel { height: 35%; }
-.advisor-panel { height: 40%; }
-.procedure-panel { height: 60%; }
-
-/* Typography */
+/* Window Header */
 .panel-title {
+  height: var(--header-height);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
   color: var(--text-muted);
-  padding: 8px 12px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border-color);
   margin: 0;
   background-color: rgba(0,0,0,0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0; /* Don't shrink header */
 }
 
 .panel-content {
   flex: 1;
   padding: 12px;
   display: flex;
-  overflow: hidden;
+  overflow: auto; /* Enable scroll if needed */
+  position: relative;
 }
 
-/* Components: Buttons */
+/* --- Component Styles --- */
+
+/* Buttons */
 .dcs-btn {
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
@@ -131,7 +142,7 @@ body {
   border-color: #a16207;
 }
 
-/* Components: Sliders */
+/* Sliders */
 .dcs-slider-container {
   width: 100%;
   display: flex;
@@ -150,8 +161,6 @@ body {
   background: transparent;
 }
 .dcs-slider:focus { outline: none; }
-
-/* Track */
 .dcs-slider::-webkit-slider-runnable-track {
   width: 100%;
   height: 6px;
@@ -160,7 +169,6 @@ body {
   border-radius: 3px;
   border: 1px solid var(--border-color);
 }
-/* Thumb */
 .dcs-slider::-webkit-slider-thumb {
   height: 16px;
   width: 16px;
@@ -168,12 +176,12 @@ body {
   background: var(--color-info);
   cursor: pointer;
   -webkit-appearance: none;
-  margin-top: -6px; /* center thumb */
+  margin-top: -6px;
   border: 2px solid var(--bg-panel);
   box-shadow: 0 0 4px rgba(0,0,0,0.5);
 }
 
-/* Components: Annunciators */
+/* Annunciators */
 .annunciator-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -206,7 +214,7 @@ body {
   font-size: 0.6rem;
   font-weight: 700;
   border: 1px solid #000;
-  background-color: #000; /* Off state */
+  background-color: #000;
   color: #333;
   text-align: center;
   transition: all 0.2s;
@@ -225,12 +233,12 @@ body {
   to { opacity: 0.8; }
 }
 
-/* Components: Value Display */
+/* Value Display */
 .value-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 .value-row:last-child { border-bottom: none; }

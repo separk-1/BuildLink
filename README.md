@@ -10,10 +10,8 @@
 - **Ease of Testing:** A web link allows immediate access for evaluation.
 - **Scalability:** If adopted, the core logic can be ported to a desktop application or expanded as a full web platform.
 
-### Design Philosophy (2026-01-14 Context)
-- **Simplified Interface:** We explicitly rejected using the RANCOR system directly because:
-    1.  It is overly complex for our specific testing needs.
-    2.  We need a generalized panel design that can be easily understood by non-experts.
+### Design Philosophy
+- **Simplified Interface:** We explicitly rejected using the RANCOR system directly.
 - **Focus:** Loss of Feedwater (LOFW) scenario.
     - Cause: Automatic valve control failure or pump failure.
     - Resolution: Rapid shutdown (Reactor Trip) if manual control fails.
@@ -23,86 +21,69 @@
 ## 2. System Architecture
 
 ### Tech Stack
-- **Frontend:** React + Vite + Zustand (State Management).
+- **Frontend:** React + Vite + Tailwind CSS + Zustand (State Management).
 - **Visualization:** Canvas/SVG for the Plant Mimic.
-- **Backend:** (Optional for MVP) Python/FastAPI for advanced log storage. *Initially, logs will be handled client-side.*
+- **Logging:** Client-side JSON generation (for Knowledge Graph research).
 
 ### Screen Layout (4-Split Design)
-Based on the January 14th design decision, the screen is divided into 4 quadrants:
-
 | Location | Component | Description |
 | :--- | :--- | :--- |
-| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Simplified RANCOR-like mimic. Shows system status (FW Flow, SG Level, Reactor Power). |
-| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls. Toggles, sliders, and trip buttons. |
-| **Top-Right** | **AI Advisor** | *(Placeholder)* Future space for LLM-based decision support. |
-| **Bottom-Right** | **Procedures** | *(Placeholder)* Interactive procedures and Knowledge Graph visualization. |
+| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Simplified mimic. Shows FW Flow, SG Level, Reactor Power, Turbine Speed. |
+| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls (Toggles, Sliders, Buttons). |
+| **Top-Right** | **AI Advisor** | *(Placeholder)* Future LLM-based decision support. |
+| **Bottom-Right** | **Procedures** | *(Placeholder)* Interactive procedures/Knowledge Graph. |
 
 ---
 
 ## 3. Simulation Logic ("Fake Physics")
-The physics model is designed to support **operator training** and **decision-making analysis**, not engineering-grade thermal hydraulics.
+The physics model uses simplified ODEs running at **10Hz**.
 
 ### State Variables
-- `fw_flow` (kg/s): Feedwater Flow Rate.
-- `sg_level` (%): Steam Generator Water Level.
-- `sg_pressure` (MPa): Steam Generator Pressure.
-- `reactor_power` (%): Core Thermal Power.
-- `turbine_speed` (rpm): Turbine rotation speed.
+- `fw_flow` (kg/s)
+- `sg_level` (%)
+- `sg_pressure` (MPa)
+- `reactor_power` (%)
+- `turbine_speed` (rpm)
 
-### Dynamics Equations (Specs)
-The simulation loop runs at **10Hz**.
+### Controls (Inputs)
+- **Toggles:**
+  - `FW Pump` (ON/OFF)
+  - `FW Isolation Valve` (OPEN/CLOSE)
+  - `Main Steam Isolation Valve (MSIV)` (OPEN/CLOSE)
+- **Sliders:**
+  - `FW Control Valve` (0-100%)
+- **Buttons:**
+  - `TRIP REACTOR`
+  - `TRIP TURBINE`
 
+### Dynamics Equations
 1.  **Feedwater Flow:**
-    ```javascript
+    ```
     fw_flow = k * fw_pump_on * fw_iv_open * fw_cv_position * (1 - fault_severity)
     ```
 2.  **Steam Generator Level:**
-    ```javascript
-    // Change in level is Flow In minus Steam Out
-    sg_level += a * fw_flow - b * steam_out
     ```
-3.  **Steam Out:**
-    Derived from `reactor_power`. Drops to 0 if MSIV (Main Steam Isolation Valve) is closed.
+    d(level)/dt = a * fw_flow - b * steam_out
+    ```
+    *Note: `steam_out` is derived from reactor power and MSIV status.*
 
 ### Alarms
 - `FW LOW FLOW`
 - `SG LOW LEVEL`
-- `RX OVER POWER` (Optional)
-- `HIGH ΔT` (Optional)
+- `RX OVER POWER`
+- `HIGH ΔT`
 
 ---
 
-## 4. Logging & Knowledge Graph Integration
-A critical requirement is generating high-quality logs to build a **Knowledge Graph** of operator behavior, procedures, and regulations.
+## 4. Logging Requirement
+Critical for building the dataset for the Knowledge Graph.
 
-### Log Structure
-1.  **Event Logs (User Actions):**
-    -   `timestamp`: ISO String
-    -   `action_type`: e.g., `TOGGLE_PUMP`, `SET_FW_CV`, `TRIP_REACTOR`
-    -   `target`: Component ID
-    -   `value`: New value (e.g., `0.65`, `OFF`)
-    -   `user_id`: Session Identifier
-2.  **State Snapshots (Periodic):**
-    -   Captured every 1 second (1Hz).
-    -   Contains all State Variables (`fw_flow`, `sg_level`, etc.) and active Alarms.
+1.  **Event Logs:** User actions (e.g., `TOGGLE_PUMP`, `SET_FW_CV` `0.65`).
+2.  **State Snapshots:** Recorded every **1 second (1Hz)** containing all state variables and active alarms.
 
 ---
 
-## 5. Development Roadmap
-
-- [x] **Phase 1: Foundation**
-    - Project setup (React/Vite).
-    - "Fake Physics" implementation (LOFW specific).
-- [x] **Phase 2: UI Implementation (Current)**
-    - Implement the 4-Split Layout.
-    - Build the Status Panel (Mimic) and Control Panel.
-- [x] **Phase 3: Logging & Export**
-    - Ensure JSON log export meets the Knowledge Graph requirements.
-- [ ] **Phase 4: Advanced Features**
-    - AI Advisor integration.
-    - Procedure digitization.
-
-## 6. How to Run
+## 5. How to Run
 ```bash
 # Install dependencies
 npm install
