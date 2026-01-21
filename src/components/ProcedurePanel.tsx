@@ -64,6 +64,10 @@ export const ProcedurePanel = () => {
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
   const [autoFocus, setAutoFocus] = useState(true);
 
+  // Hover Tooltip State
+  const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 }); // Screen/Client space for tooltip div
+
   const simState = useSimulationStore();
 
   // Parse Data on Mount
@@ -120,7 +124,7 @@ export const ProcedurePanel = () => {
             y: prev.y + (targetTy - prev.y) * 0.05
         }));
     }
-  }, [simState, nodes, autoFocus, transform.k]); // transform.x/y removed from dependency to avoid loop, but we need re-render
+  }, [simState, nodes, autoFocus, transform.k]);
 
   // Interaction Handlers
   const handleWheel = (e: React.WheelEvent) => {
@@ -137,6 +141,28 @@ export const ProcedurePanel = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // 1. Tooltip Detection (World Space)
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Inverse Transform: WorldX = (ScreenX - Tx) / k
+        const worldX = (mouseX - transform.x) / transform.k;
+        const worldY = (mouseY - transform.y) / transform.k;
+
+        const nodeRadius = 10; // slightly larger than visual 8
+        const found = nodes.find(n => {
+            const dx = n.x - worldX;
+            const dy = n.y - worldY;
+            return (dx*dx + dy*dy) < (nodeRadius * nodeRadius);
+        });
+
+        setHoveredNode(found || null);
+        setMousePos({ x: e.clientX, y: e.clientY }); // For tooltip positioning
+    }
+
+    // 2. Dragging Pan
     if (!isDragging) return;
     const dx = e.clientX - lastPos.x;
     const dy = e.clientY - lastPos.y;
@@ -169,7 +195,7 @@ export const ProcedurePanel = () => {
           const dx = nodes[j].x - nodes[i].x;
           const dy = nodes[j].y - nodes[i].y;
           const distSq = dx * dx + dy * dy || 1;
-          const force = 5000 / distSq;
+          const force = 3000 / distSq; // Reduced from 5000 to stabilize
           const fx = (dx / Math.sqrt(distSq)) * force;
           const fy = (dy / Math.sqrt(distSq)) * force;
 
@@ -188,7 +214,7 @@ export const ProcedurePanel = () => {
           const dx = target.x - source.x;
           const dy = target.y - source.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = (dist - 100) * 0.05;
+          const force = (dist - 80) * 0.05; // Rest length reduced to 80
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
 
@@ -199,12 +225,22 @@ export const ProcedurePanel = () => {
         }
       });
 
-      // Center Gravity (To World Origin 400,300 approx)
+      // Center Gravity
       nodes.forEach(node => {
         node.vx += (400 - node.x) * 0.01;
         node.vy += (300 - node.y) * 0.01;
-        node.vx *= 0.9;
-        node.vy *= 0.9;
+
+        // Stronger Damping to stop shaking
+        node.vx *= 0.6; // Was 0.9
+        node.vy *= 0.6;
+
+        // Cap Velocity
+        const v = Math.sqrt(node.vx*node.vx + node.vy*node.vy);
+        if (v > 5) {
+            node.vx = (node.vx / v) * 5;
+            node.vy = (node.vy / v) * 5;
+        }
+
         node.x += node.vx;
         node.y += node.vy;
       });
@@ -219,7 +255,7 @@ export const ProcedurePanel = () => {
 
       // Draw Links
       ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 1 / transform.k; // Keep lines thin visually
+      ctx.lineWidth = 1 / transform.k;
       links.forEach(link => {
         const source = nodes.find(n => n.id === link.source);
         const target = nodes.find(n => n.id === link.target);
@@ -236,14 +272,20 @@ export const ProcedurePanel = () => {
 
       nodes.forEach(node => {
         const isActive = node.id === activeNodeId;
+        const isHovered = hoveredNode?.id === node.id;
 
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 8, 0, Math.PI * 2); // Radius 8 fixed in world space
+        const r = isHovered ? 10 : 8; // Highlight size
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
 
         if (isActive) {
             ctx.shadowColor = '#fff';
             ctx.shadowBlur = 10;
-            ctx.fillStyle = '#fff'; // Highlight active
+            ctx.fillStyle = '#fff';
+        } else if (isHovered) {
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 5;
+            ctx.fillStyle = '#e2e8f0'; // Light slate
         } else {
             ctx.shadowBlur = 0;
             if (node.type === 'PC_ST') ctx.fillStyle = '#3b82f6';
@@ -254,18 +296,14 @@ export const ProcedurePanel = () => {
         }
 
         ctx.fill();
-        ctx.strokeStyle = isActive ? '#fff' : '#000';
+        ctx.strokeStyle = (isActive || isHovered) ? '#fff' : '#000';
         ctx.stroke();
-        ctx.shadowBlur = 0; // Reset
+        ctx.shadowBlur = 0;
 
         // Label
         ctx.fillStyle = '#f1f5f9';
-        // Scale font so it stays readable but zooms with world?
-        // Or keep fixed size? Fixed size is better for readability usually,
-        // but simple canvas text transforms with context.
-        // Let's let it scale for now.
         ctx.font = '10px Arial';
-        ctx.fillText(node.name.substring(0, 15), node.x + 10, node.y + 3);
+        ctx.fillText(node.name.substring(0, 15), node.x + 12, node.y + 3);
       });
 
       ctx.restore();
@@ -276,7 +314,7 @@ export const ProcedurePanel = () => {
     tick();
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [nodes, links, transform, simState]);
+  }, [nodes, links, transform, simState, hoveredNode]);
 
   return (
     <>
@@ -293,7 +331,7 @@ export const ProcedurePanel = () => {
             <span style={{ fontSize: '0.6rem' }}>{nodes.length} Nodes</span>
         </div>
       </div>
-      <div className="panel-content" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="panel-content" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
         <canvas
             ref={canvasRef}
             width={800}
@@ -305,6 +343,29 @@ export const ProcedurePanel = () => {
             onMouseLeave={handleMouseUp}
             style={{ width: '100%', height: '100%', background: '#0f172a', cursor: isDragging ? 'grabbing' : 'grab' }}
         />
+
+        {/* Tooltip */}
+        {hoveredNode && (
+            <div style={{
+                position: 'fixed',
+                top: mousePos.y + 10,
+                left: mousePos.x + 10,
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid #475569',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                color: '#fff',
+                fontSize: '0.75rem',
+                zIndex: 1000,
+                pointerEvents: 'none',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+            }}>
+                <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{hoveredNode.name}</div>
+                <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Type: {hoveredNode.type}</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>ID: {hoveredNode.id}</div>
+            </div>
+        )}
+
         {/* Legend Overlay */}
         <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none' }}>
             <LegendItem color="#3b82f6" label="Step" />

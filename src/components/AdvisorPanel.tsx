@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { askGemini } from '../utils/gemini';
-import { GEMINI_API_KEY as ConfigKey } from '../config'; // Import from config (might be empty)
 import { ENTITY_CSV, RELATIONSHIP_CSV } from '../data/graphData';
 import { useSimulationStore } from '../store/simulationStore';
 
@@ -9,8 +8,10 @@ export const AdvisorPanel = () => {
     { sender: 'AI', text: 'System Initialized. Monitoring LOFW scenario.' },
   ]);
   const [input, setInput] = useState('');
-  const [apiKey, setApiKey] = useState(ConfigKey || ''); // Use config key if present
   const [loading, setLoading] = useState(false);
+
+  // Use env var directly for display status
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   const simState = useSimulationStore();
 
@@ -19,7 +20,7 @@ export const AdvisorPanel = () => {
 
     // Check API Key
     if (!apiKey) {
-        setMessages(prev => [...prev, { sender: 'AI', text: 'Please enter a Gemini API Key to enable AI support.' }]);
+        setMessages(prev => [...prev, { sender: 'AI', text: 'API Key Missing (Check .env)' }]);
         return;
     }
 
@@ -29,8 +30,6 @@ export const AdvisorPanel = () => {
     setLoading(true);
 
     // Construct Context (Simulation State + Simplified Graph)
-    // We pass the raw CSV lines as context to save token space vs structured JSON,
-    // or we could parse. For now, raw CSV is surprisingly effective for LLMs.
     const context = `
     CURRENT SIMULATION STATE:
     FW Flow: ${simState.fw_flow.toFixed(1)} L/s
@@ -48,7 +47,7 @@ export const AdvisorPanel = () => {
     `;
 
     try {
-        const answer = await askGemini(userQuestion, context, apiKey);
+        const answer = await askGemini(userQuestion, context);
         setMessages(prev => [...prev, { sender: 'AI', text: answer }]);
     } catch (error) {
         setMessages(prev => [...prev, { sender: 'AI', text: 'Connection failed. Please check API Key.' }]);
@@ -66,19 +65,6 @@ export const AdvisorPanel = () => {
         </span>
       </div>
       <div className="panel-content" style={{ flexDirection: 'column', padding: 0 }}>
-
-        {/* API Key Input (if missing or want to update) */}
-        {!ConfigKey && (
-             <div style={{ padding: '4px 8px', background: '#334155', borderBottom: '1px solid var(--border-color)' }}>
-                <input
-                    type="password"
-                    placeholder="Enter Gemini API Key..."
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    style={{ width: '100%', background: 'transparent', border: 'none', color: '#cbd5e1', fontSize: '0.7rem' }}
-                />
-             </div>
-        )}
 
         {/* Chat History */}
         <div style={{ flex: 1, padding: '10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
