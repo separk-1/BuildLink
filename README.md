@@ -1,103 +1,120 @@
-# NPP Web Simulator (LOFW Prototype)
+# Web-Based Nuclear Power Plant Simulator (LOFW Prototype)
 
-![Design Reference](./design_reference.png)
+## 1. Project Overview
+This project aims to build a **Web-based Prototype** of a Nuclear Power Plant (NPP) simulator, specifically focusing on the **Loss of Feedwater (LOFW)** scenario. The goal is to provide a simplified, accessible platform for industry partners to test and validate our approach without the friction of installing desktop executables.
 
-## 1. Project Context & Objectives
-**Goal:** Develop a **Web-based Nuclear Power Plant (NPP) Simulator Prototype** specifically for the **Loss of Feedwater (LOFW)** scenario.
-
-### Why Web-Based? (2026-01-18 Context)
-- **Accessibility:** We are building a prototype to be tested by various industry partners. Distributing an `.exe` file creates friction and security concerns for decision-makers.
-- **Ease of Testing:** A web link allows immediate access for evaluation.
-- **Scalability:** If adopted, the core logic can be ported to a desktop application or expanded as a full web platform.
-
-### Design Philosophy
-- **Simplified Interface:** We explicitly rejected using the RANCOR system directly.
-- **Focus:** Loss of Feedwater (LOFW) scenario.
-    - Cause: Automatic valve control failure or pump failure.
-    - Resolution: Rapid shutdown (Reactor Trip) if manual control fails.
+### Key Objectives
+- **Prototype (MVP):** Rapid development of a minimum viable product.
+- **Scenario:** Loss of Feedwater (LOFW).
+- **Platform:** Web-based (React) for easy distribution and testing.
+- **Physics:** Simplified "Fake Physics" optimized for training and decision-making (not high-fidelity engineering analysis).
 
 ---
 
-## 2. System Architecture
+## 2. Context & Design Decisions
+*(Derived from project logs 2025-2026)*
 
-### Tech Stack
-- **Frontend:** React + Vite + Tailwind CSS + Zustand (State Management).
-- **Visualization:** Canvas/SVG for the Plant Mimic.
-- **Logging:** Client-side JSON generation (for Knowledge Graph research).
+- **Web vs. EXE:** We chose a web-based approach to allow decision-makers to easily test the prototype via a URL. If adopted, the core logic can be ported to EXE later if needed.
+- **Control Panel:** Simplified design. We explicitly rejected using the complex RANCOR system directly to avoid unnecessary complexity and generalizability issues.
+- **Layout:** A **4-Split Panel** design was chosen to balance situational awareness, control, and future AI integration.
 
-### Screen Layout (4-Split Design)
-| Location | Component | Description |
+---
+
+## 3. System Architecture (4-Split Layout)
+
+The application interface is divided into four quadrants:
+
+| Quadrant | Panel Name | Functionality |
 | :--- | :--- | :--- |
-| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Simplified mimic. Shows FW Flow, SG Level, Reactor Power, Turbine Speed. |
-| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls (Toggles, Sliders, Buttons). |
-| **Top-Right** | **AI Advisor** | Future LLM-based decision support. |
-| **Bottom-Right** | **Procedures** | Interactive procedures/Knowledge Graph. |
+| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Visualizes the plant state (Mimic Diagram). Shows key metrics like FW Flow, SG Level, SG Pressure, Reactor Power, Turbine Speed, and Alarm Tiles. |
+| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls including Toggles (Pump, Valves), Sliders (Control Valve), and Buttons (Trip). |
+| **Top-Right** | **AI Advisor** | *(Placeholder)* Area for future AI-based decision support and Chatbot. |
+| **Bottom-Right** | **Procedures/KG** | *(Placeholder)* Area for interactive procedures and Knowledge Graph visualization. |
+
+![UI Layout](./docs/images/ui_layout.png)
 
 ---
 
-## 3. Simulation Logic ("Fake Physics")
-The physics model uses simplified ODEs running at **10Hz**.
+## 4. Simulation Model ("Fake Physics")
+The simulation does not use complex thermal-hydraulic codes. Instead, it uses simplified ODEs to mimic the *behavior* required for training and decision-making.
 
 ### State Variables
 - `fw_flow` (kg/s)
 - `sg_level` (%)
-- `sg_pressure` (MPa)
+- `sg_pressure` (MPa or relative value)
 - `reactor_power` (%)
-- `turbine_speed` (rpm)
+- `turbine_speed` (rpm or %)
 
-### Controls (Inputs)
+### Control Inputs
 - **Toggles:**
-  - `FW Pump` (ON/OFF)
-  - `FW Isolation Valve` (OPEN/CLOSE)
-  - `Main Steam Isolation Valve (MSIV)` (OPEN/CLOSE)
+  - `fw_pump_on` (Boolean)
+  - `fw_iv_open` (Boolean) - Isolation Valve
+  - `msiv_open` (Boolean) - Main Steam Isolation Valve
 - **Sliders:**
-  - `FW Control Valve` (0-100%)
+  - `fw_cv` (0.0 to 1.0) - Control Valve
 - **Buttons:**
   - `TRIP REACTOR`
   - `TRIP TURBINE`
 
-### Dynamics Equations
-1.  **Feedwater Flow:**
-    ```
-    fw_flow = k * fw_pump_on * fw_iv_open * fw_cv_position * (1 - fault_severity)
-    ```
-2.  **Steam Generator Level:**
-    ```
-    d(level)/dt = a * fw_flow - b * steam_out
-    ```
-    *Note: `steam_out` is derived from reactor power and MSIV status.*
+### Update Logic (approx. 10Hz)
+The core dynamics are governed by:
+
+```javascript
+// Feedwater Flow Calculation
+fw_flow = k * fw_pump_on * fw_iv_open * fw_cv * (1 - fault_severity)
+
+// Steam Generator Level Dynamics
+// level increases with inflow, decreases with steam outflow
+sg_level += a * fw_flow - b * steam_out
+// Note: steam_out is derived from reactor power/pressure
+```
 
 ### Alarms
 - `FW LOW FLOW`
 - `SG LOW LEVEL`
-- `RX OVER POWER`
-- `HIGH ΔT`
+- `RX OVER PWR` (Optional)
+- `HIGH ΔT` (Optional)
 
 ---
 
-## 4. Logging Requirement
-Critical for building the dataset for the Knowledge Graph.
+## 5. Logging System
+Logging is a critical requirement for future analysis and Knowledge Graph construction.
 
-1.  **Event Logs:** User actions (e.g., `TOGGLE_PUMP`, `SET_FW_CV` `0.65`).
-2.  **State Snapshots:** Recorded every **1 second (1Hz)** containing all state variables and active alarms.
+### 1. Event Logs
+Records every user interaction.
+- **Format:** `{ timestamp, action_type, target, value, user_id }`
+- **Examples:**
+  - `SET_FW_CV 0.65`
+  - `TOGGLE_PUMP ON`
+  - `PRESS_TRIP_REACTOR`
+
+### 2. State Snapshots
+Records the full system state every **1 second (1Hz)**.
+- **Fields:** `fw_flow`, `sg_level`, `sg_pressure`, `power`, `alarms[]`
 
 ---
 
-## 5. How to Run
+## 6. Technical Stack
+- **Frontend:** React
+- **State Management:** Zustand (Lightweight store for simulation state)
+- **Visualization:** Canvas or SVG (for Mimic Diagram/P&ID)
+- **Deployment:** Vercel/Netlify (Static)
 
-### Development Setup
-This project uses **Vite** with **Tailwind CSS**. Due to recent updates in the Tailwind ecosystem, we use `@tailwindcss/postcss`.
+---
 
-```bash
-# 1. Install dependencies (including Tailwind and PostCSS)
-npm install
-npm install -D tailwindcss @tailwindcss/postcss postcss autoprefixer
+## 7. Development Plan
 
-# 2. Start Development Server
-npm run dev
-```
+### Day 1: UI & Basics
+- Implement the 4-split layout.
+- Create UI components for Controls (Toggles, Sliders).
+- Implement the Status Panel with dummy data.
 
-### Build for Production
-```bash
-npm run build
-```
+### Day 2: Physics & Alarms
+- Implement the "Fake Physics" loop (ODEs).
+- Connect Controls to State.
+- Implement Alarm logic (Thresholds).
+
+### Day 3: Logging & Export
+- Implement Event Logging.
+- Implement State Snapshotting (1Hz).
+- Create "Incident Report" JSON export feature.
