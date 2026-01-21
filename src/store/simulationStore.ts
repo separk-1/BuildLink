@@ -6,154 +6,371 @@ const TICK_RATE = 100; // ms (10Hz)
 const DT = TICK_RATE / 1000; // seconds
 
 interface SimulationState {
-  // --- System State ---
+  // --- System State (Float/Int) ---
   last_log_time: number;
-  fw_flow: number;      // kg/s
-  sg_level: number;     // %
-  sg_pressure: number;  // MPa
-  reactor_power: number;// %
-  turbine_speed: number;// rpm
 
-  // --- Controls ---
-  fw_pump_on: boolean;
-  fw_iv_open: boolean;  // Isolation Valve
-  fw_cv: number;        // Control Valve (0.0 - 1.0) - Renamed from fw_cv_open per spec
-  msiv_open: boolean;   // Main Steam Isolation Valve
+  // Reactor
+  reactivity: number;      // 0-100% (Power)
+  display_reactivity: number; // Noisy
 
-  // --- Trip Status ---
-  reactor_tripped: boolean;
-  turbine_tripped: boolean;
+  core_t: number;          // 0-400 DEG C
+  display_core_t: number;  // Noisy
 
-  // --- Malfunctions ---
-  fault_severity: number; // 0.0 to 1.0 - Renamed from malfunction_severity per spec
+  pri_flow: number;        // L/sec (Nominal ~45000?)
+  display_pri_flow: number;// Noisy
 
-  // --- Alarms ---
-  alarms: string[];
+  // SG
+  fw_flow: number;         // L/sec
+  display_fw_flow: number; // Noisy
+
+  fwcv_degree: number;     // 0.0 - 1.0
+  sg_level: number;        // 0-100%
+  display_sg_level: number;// Noisy
+
+  steam_press: number;     // kg/cm2
+  display_steam_press: number; // Noisy
+
+  // Turbine
+  turbine_speed_cv: number; // 0.0-1.0
+  turbine_load_cv: number;  // 0.0-1.0
+  turbine_bypass_cv: number;// 0.0-1.0
+  turbine_rpm: number;      // Derived for display
+
+  // --- Controls (Boolean/Controllable) ---
+  // Reactor
+  trip_reactor: boolean;
+  activate_si: boolean;
+  rcp: boolean;
+  porviv: boolean;
+
+  // SG
+  fwcv_mode: boolean; // true = Auto, false = Manual
+  fwiv: boolean;
+  msiv: boolean;
+  fw_pump: boolean;
+
+  // Turbine
+  trip_turbine: boolean;
+
+  // --- Malfunctions (Hidden) ---
+  fault_severity: number;
+
+  // --- Annunciators (Boolean - Read Only) ---
+  // Primary
+  rx_over_limit: boolean;
+  high_temp_high_rx_trip: boolean;
+  core_temp_high: boolean;
+  cnmt_rad_monitor: boolean;
+  safety_injection_engaged: boolean;
+  core_temp_low: boolean;
+  all_rods_down: boolean;
+  reactor_coolant_pump_trip: boolean;
+  low_primary_coolant: boolean;
+
+  // Secondary
+  sg_high_level: boolean;
+  ms_rad_monitor: boolean;
+  sg_low_level: boolean;
+  low_turbine_pressure: boolean;
+  fw_low_flow: boolean;
+  fw_pump_trip: boolean;
+
+  // Turbine
+  turbine_trip: boolean;
+  atmos_dump_active: boolean;
+  ready_to_roll: boolean;
+  ready_to_sync: boolean;
+  not_latched: boolean;
+  not_synced_to_grid: boolean;
 
   // --- Actions ---
-  togglePump: () => void;
-  toggleFwIv: () => void;
+  // Reactor Controls
+  toggleTripReactor: () => void;
+  toggleSi: () => void;
+  toggleRcp: () => void;
+  togglePorv: () => void;
+
+  // SG Controls
+  toggleFwcvMode: () => void;
+  setFwcvDegree: (val: number) => void;
+  toggleFwiv: () => void;
   toggleMsiv: () => void;
-  setFwCv: (val: number) => void;
-  tripReactor: () => void;
-  tripTurbine: () => void;
+  toggleFwPump: () => void;
+
+  // Turbine Controls
+  toggleTripTurbine: () => void;
+  setTurbineSpeedCv: (val: number) => void;
+  setTurbineLoadCv: (val: number) => void;
+  setTurbineBypassCv: (val: number) => void;
+
   tick: () => void;
 }
 
+// Helper to add noise
+const addNoise = (val: number, magnitude: number) => {
+    return val + (Math.random() - 0.5) * magnitude;
+};
+
 export const useSimulationStore = create<SimulationState>((set, get) => ({
-  // Initial State
+  // --- Initial State ---
   last_log_time: 0,
-  fw_flow: 1000,
-  sg_level: 50,
-  sg_pressure: 6.0,
-  reactor_power: 100,
-  turbine_speed: 1800,
 
-  fw_pump_on: true,
-  fw_iv_open: true,
-  fw_cv: 0.8,
-  msiv_open: true,
+  // Reactor
+  reactivity: 100.0,
+  display_reactivity: 100.0,
 
-  reactor_tripped: false,
-  turbine_tripped: false,
+  core_t: 310.0,
+  display_core_t: 310.0,
+
+  pri_flow: 45000,
+  display_pri_flow: 45000,
+
+  // SG
+  fw_flow: 1500,
+  display_fw_flow: 1500,
+
+  fwcv_degree: 0.8,
+
+  sg_level: 50.0,
+  display_sg_level: 50.0,
+
+  steam_press: 60.0,
+  display_steam_press: 60.0,
+
+  // Turbine
+  turbine_speed_cv: 1.0,
+  turbine_load_cv: 1.0,
+  turbine_bypass_cv: 0.0,
+  turbine_rpm: 1800,
+
+  // Controls
+  trip_reactor: false,
+  activate_si: false,
+  rcp: true,
+  porviv: false,
+
+  fwcv_mode: true, // Auto
+  fwiv: true,
+  msiv: true,
+  fw_pump: true,
+
+  trip_turbine: false,
 
   fault_severity: 0.0,
-  alarms: [],
 
-  // Actions
-  togglePump: () => {
-    const s = get();
-    const newVal = !s.fw_pump_on;
-    logger.logAction('TOGGLE_PUMP', { target: 'FW_PUMP', value: newVal ? 'ON' : 'OFF' });
-    set({ fw_pump_on: newVal });
+  // Annunciators (Init all false)
+  rx_over_limit: false,
+  high_temp_high_rx_trip: false,
+  core_temp_high: false,
+  cnmt_rad_monitor: false,
+  safety_injection_engaged: false,
+  core_temp_low: false,
+  all_rods_down: false,
+  reactor_coolant_pump_trip: false,
+  low_primary_coolant: false,
+  sg_high_level: false,
+  ms_rad_monitor: false,
+  sg_low_level: false,
+  low_turbine_pressure: false,
+  fw_low_flow: false,
+  fw_pump_trip: false,
+  turbine_trip: false,
+  atmos_dump_active: false,
+  ready_to_roll: false,
+  ready_to_sync: false,
+  not_latched: false,
+  not_synced_to_grid: false,
+
+  // --- Actions ---
+  toggleTripReactor: () => {
+      const newVal = !get().trip_reactor;
+      logger.logAction('TOGGLE_TRIP_REACTOR', { target: 'trip_reactor', value: newVal });
+      set({ trip_reactor: newVal });
   },
-  toggleFwIv: () => {
-    const s = get();
-    const newVal = !s.fw_iv_open;
-    logger.logAction('TOGGLE_FW_IV', { target: 'FW_IV', value: newVal ? 'OPEN' : 'CLOSED' });
-    set({ fw_iv_open: newVal });
+  toggleSi: () => {
+      const newVal = !get().activate_si;
+      logger.logAction('TOGGLE_SI', { target: 'activate_si', value: newVal });
+      set({ activate_si: newVal });
+  },
+  toggleRcp: () => {
+      const newVal = !get().rcp;
+      logger.logAction('TOGGLE_RCP', { target: 'rcp', value: newVal });
+      set({ rcp: newVal });
+  },
+  togglePorv: () => {
+      const newVal = !get().porviv;
+      logger.logAction('TOGGLE_PORV', { target: 'porviv', value: newVal });
+      set({ porviv: newVal });
+  },
+  toggleFwcvMode: () => {
+      const newVal = !get().fwcv_mode;
+      logger.logAction('TOGGLE_FWCV_MODE', { target: 'fwcv_mode', value: newVal ? 'Auto' : 'Manual' });
+      set({ fwcv_mode: newVal });
+  },
+  setFwcvDegree: (val) => {
+      if (!get().fwcv_mode) {
+        // Enforce 0.1 step rounding if not done by UI
+        const steppedVal = Math.round(val * 10) / 10;
+        logger.logAction('SET_FWCV_DEGREE', { target: 'fwcv_degree', value: steppedVal });
+        set({ fwcv_degree: steppedVal });
+      }
+  },
+  toggleFwiv: () => {
+      const newVal = !get().fwiv;
+      logger.logAction('TOGGLE_FWIV', { target: 'fwiv', value: newVal });
+      set({ fwiv: newVal });
   },
   toggleMsiv: () => {
-    const s = get();
-    const newVal = !s.msiv_open;
-    logger.logAction('TOGGLE_MSIV', { target: 'MSIV', value: newVal ? 'OPEN' : 'CLOSED' });
-    set({ msiv_open: newVal });
+      const newVal = !get().msiv;
+      logger.logAction('TOGGLE_MSIV', { target: 'msiv', value: newVal });
+      set({ msiv: newVal });
   },
-  setFwCv: (val) => {
-    const newVal = Math.max(0, Math.min(1, val));
-    logger.logAction('SET_FW_CV', { target: 'FW_CV', value: newVal });
-    set({ fw_cv: newVal });
+  toggleFwPump: () => {
+      const newVal = !get().fw_pump;
+      logger.logAction('TOGGLE_FW_PUMP', { target: 'fw_pump', value: newVal });
+      set({ fw_pump: newVal });
   },
-  tripReactor: () => {
-      logger.logAction('TRIP_REACTOR', { target: 'REACTOR', value: 'TRIP' });
-      set({ reactor_tripped: true, reactor_power: 0 });
+  toggleTripTurbine: () => {
+      const newVal = !get().trip_turbine;
+      logger.logAction('TOGGLE_TRIP_TURBINE', { target: 'trip_turbine', value: newVal });
+      set({ trip_turbine: newVal });
   },
-  tripTurbine: () => {
-      logger.logAction('TRIP_TURBINE', { target: 'TURBINE', value: 'TRIP' });
-      set({ turbine_tripped: true, turbine_speed: 0 });
+  setTurbineSpeedCv: (val) => {
+      const steppedVal = Math.round(val * 10) / 10;
+      logger.logAction('SET_TURB_SPEED_CV', { target: 'turbine_speed_cv', value: steppedVal });
+      set({ turbine_speed_cv: steppedVal });
+  },
+  setTurbineLoadCv: (val) => {
+      const steppedVal = Math.round(val * 10) / 10;
+      logger.logAction('SET_TURB_LOAD_CV', { target: 'turbine_load_cv', value: steppedVal });
+      set({ turbine_load_cv: steppedVal });
+  },
+  setTurbineBypassCv: (val) => {
+      const steppedVal = Math.round(val * 10) / 10;
+      logger.logAction('SET_TURB_BYPASS_CV', { target: 'turbine_bypass_cv', value: steppedVal });
+      set({ turbine_bypass_cv: steppedVal });
   },
 
+  // --- Physics Tick ---
   tick: () => {
     const s = get();
+    let updates: any = {};
 
-    // --- 1. Calculate Feedwater Flow ---
-    // fw_flow = k * pump_on * iv_open * cv_pos * (1 - fault_severity)
-    const MAX_FLOW = 1500;
-    let flow_target = MAX_FLOW * s.fw_cv;
+    // 1. Reactor Logic
+    let target_reactivity = s.reactivity;
+    if (s.trip_reactor) {
+        target_reactivity = 0;
+        updates.all_rods_down = true;
+    } else {
+        updates.all_rods_down = false;
+    }
+    const reactivity_change = (target_reactivity - s.reactivity) * 0.1;
+    let new_reactivity = s.reactivity + reactivity_change;
 
-    if (!s.fw_pump_on) flow_target = 0;
-    if (!s.fw_iv_open) flow_target = 0;
+    // RCP effects Flow
+    let target_pri_flow = s.rcp ? 45000 : 0;
+    let new_pri_flow = s.pri_flow + (target_pri_flow - s.pri_flow) * 0.05;
 
-    // Apply fault
-    flow_target = flow_target * (1 - s.fault_severity);
+    // Core Temp Logic
+    let flow_factor = Math.max(0.1, new_pri_flow / 45000);
+    let target_core_t = 280 + (new_reactivity * 0.4) / flow_factor;
+    target_core_t = Math.min(400, Math.max(20, target_core_t));
+    let new_core_t = s.core_t + (target_core_t - s.core_t) * 0.02;
 
-    // Simple lag/inertia for flow changes
-    const flow_change = (flow_target - s.fw_flow) * 0.1;
-    const new_fw_flow = s.fw_flow + flow_change;
+    // 2. Feedwater Logic
+    let new_fwcv_degree = s.fwcv_degree;
+    if (s.fwcv_mode) {
+        // Auto: Maintain 50%
+        const error = 50.0 - s.sg_level;
+        const correction = error * 0.005;
+        new_fwcv_degree = Math.max(0, Math.min(1, s.fwcv_degree + correction));
+    }
 
-    // --- 2. Calculate Steam Out ---
-    // Derived from reactor_power. Drops to 0 if MSIV is closed.
-    let steam_out = (s.reactor_power / 100) * 1200; // 1200 is nominal
-    if (!s.msiv_open) steam_out = 0;
+    // Calc Flow
+    let avail_pump_head = s.fw_pump ? 2000 : 0;
+    if (!s.fwiv) avail_pump_head = 0;
+    let target_fw_flow = avail_pump_head * new_fwcv_degree * (1 - s.fault_severity);
+    let new_fw_flow = s.fw_flow + (target_fw_flow - s.fw_flow) * 0.1;
 
-    // --- 3. Calculate SG Level ---
-    // d(sg_level) = (fw_flow - steam_out) * scale_factor
+    // 3. SG Logic
+    let steam_out = (new_reactivity / 100) * 1500;
+    if (!s.msiv) steam_out = 0;
+
     const mass_balance = new_fw_flow - steam_out;
-    const level_delta = mass_balance * 0.005 * DT;
-
-    let new_sg_level = s.sg_level + level_delta;
+    let new_sg_level = s.sg_level + mass_balance * 0.005 * DT;
     new_sg_level = Math.max(0, Math.min(100, new_sg_level));
 
-    // --- 4. Calculate Pressure ---
-    let target_pressure = 6.0;
-    if (s.reactor_power > 10) target_pressure = 6.0 + (s.reactor_power - 100) * 0.01;
+    // Pressure Logic
+    let target_press = 60.0;
+    if (!s.msiv && new_reactivity > 0) target_press = 75.0;
+    if (new_reactivity < 10) target_press = 40.0 + new_reactivity;
+    let new_press = s.steam_press + (target_press - s.steam_press) * 0.05;
 
-    if (!s.msiv_open && s.reactor_power > 0) {
-        target_pressure += 0.1;
-    }
-    const new_pressure = s.sg_pressure + (target_pressure - s.sg_pressure) * 0.05;
+    // 4. Turbine Logic
+    let target_rpm = 1800 * s.turbine_speed_cv;
+    if (s.trip_turbine) target_rpm = 0;
+    target_rpm = target_rpm * (1 - s.turbine_load_cv * 0.1);
+    let new_rpm = s.turbine_rpm + (target_rpm - s.turbine_rpm) * 0.01;
 
-    // --- 5. Determine Alarms ---
-    const currentAlarms: string[] = [];
-    if (new_fw_flow < 800 && s.reactor_power > 10) currentAlarms.push('FW LOW FLOW');
-    if (new_sg_level < 30) currentAlarms.push('SG LOW LEVEL');
-    if (new_sg_level > 80) currentAlarms.push('SG HIGH LEVEL');
-    if (s.reactor_power > 102) currentAlarms.push('RX OVER POWER');
-    if (s.reactor_tripped) currentAlarms.push('RX TRIPPED');
-    if (s.turbine_tripped) currentAlarms.push('TURBINE TRIPPED');
+    // --- Noise Application ---
+    updates = {
+        ...updates,
+        reactivity: new_reactivity,
+        display_reactivity: addNoise(new_reactivity, 0.5),
 
-    // --- Update State ---
-    const updates: Partial<SimulationState> = {
-      fw_flow: new_fw_flow,
-      sg_level: new_sg_level,
-      sg_pressure: new_pressure,
-      alarms: currentAlarms
+        pri_flow: new_pri_flow,
+        display_pri_flow: addNoise(new_pri_flow, 500),
+
+        core_t: new_core_t,
+        display_core_t: addNoise(new_core_t, 1.0),
+
+        fw_flow: new_fw_flow,
+        display_fw_flow: addNoise(new_fw_flow, 20),
+
+        fwcv_degree: new_fwcv_degree,
+
+        sg_level: new_sg_level,
+        display_sg_level: addNoise(new_sg_level, 0.5),
+
+        steam_press: new_press,
+        display_steam_press: addNoise(new_press, 0.5),
+
+        turbine_rpm: new_rpm,
     };
 
-    // Logging Snapshot Logic (1Hz)
+    // --- Annunciator Logic (Uses True Values usually, or Display? Standard is sensors have noise, so logic uses sensed values. But for simpler physics, let's use True values for logic, Display for UI) ---
+    // User requirement: "Has Noise = Yes" implies display state has noise. Logic usually runs on sensor data (which has noise).
+    // I'll use True values for the "Logic" thresholds to avoid flickering alarms unless I add hysteresis.
+
+    // Primary
+    updates.rx_over_limit = new_reactivity > 102;
+    updates.core_temp_high = new_core_t > 330;
+    updates.high_temp_high_rx_trip = updates.core_temp_high;
+    updates.core_temp_low = new_core_t < 270 && new_reactivity > 10;
+    updates.low_primary_coolant = new_pri_flow < 40000;
+    updates.reactor_coolant_pump_trip = !s.rcp;
+    updates.safety_injection_engaged = s.activate_si;
+    updates.cnmt_rad_monitor = false;
+
+    // Secondary
+    updates.sg_high_level = new_sg_level > 80;
+    updates.sg_low_level = new_sg_level < 30;
+    updates.fw_low_flow = new_fw_flow < 500 && new_reactivity > 10;
+    updates.fw_pump_trip = !s.fw_pump;
+    updates.low_turbine_pressure = new_press < 40;
+    updates.ms_rad_monitor = false;
+
+    // Turbine
+    updates.turbine_trip = s.trip_turbine;
+    updates.ready_to_roll = !s.trip_turbine && new_rpm < 100;
+    updates.ready_to_sync = new_rpm > 1750 && new_rpm < 1850;
+    updates.not_synced_to_grid = !updates.ready_to_sync;
+    updates.atmos_dump_active = s.turbine_bypass_cv > 0.1;
+    updates.not_latched = s.trip_turbine;
+
+    // Snapshot Logging
     if (Date.now() - s.last_log_time >= 1000) {
         updates.last_log_time = Date.now();
-        // Merge current state with updates for logging
         logger.logSnapshot({ ...s, ...updates });
     }
 

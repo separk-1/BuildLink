@@ -1,7 +1,7 @@
 // src/utils/logger.ts
 
 export interface LogEntry {
-  timestamp: string; // Changed to ISO string for better readability/parsing
+  timestamp: string;
   type: 'ACTION' | 'SNAPSHOT';
   data: any;
 }
@@ -15,7 +15,7 @@ class Logger {
     console.log(`[Logger] Initialized session: ${this.session_id}`);
   }
 
-  // Action Log: timestamp, action_type, target, value, user_id
+  // Action Log
   logAction(action_type: string, details: { target?: string, value?: any, [key: string]: any }) {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
@@ -30,26 +30,24 @@ class Logger {
     console.log('[ACTION]', action_type, details);
   }
 
-  // Snapshot Log: timestamp, all variables
+  // Snapshot Log: Dump everything that isn't a function
   logSnapshot(state: any) {
-    // Only log essential physics state
-    const snapshot = {
-      session_id: this.session_id,
-      fw_flow: state.fw_flow,
-      sg_level: state.sg_level,
-      sg_pressure: state.sg_pressure,
-      reactor_power: state.reactor_power,
-      turbine_speed: state.turbine_speed,
-      // Log controls state as well for context
-      fw_cv: state.fw_cv,
-      fw_pump: state.fw_pump_on,
-      alarms: state.alarms || [] // Expecting store to provide active alarms
-    };
+    // Filter out functions from the state object
+    const cleanState: any = { session_id: this.session_id };
+
+    for (const key in state) {
+        if (typeof state[key] !== 'function' && key !== 'alarms') {
+            cleanState[key] = state[key];
+        }
+    }
+
+    // Note: The 'alarms' array was removed in the refactor (now individual booleans),
+    // so we don't need to handle it specially, but I kept the exclusion check just in case.
 
     this.logs.push({
       timestamp: new Date().toISOString(),
       type: 'SNAPSHOT',
-      data: snapshot
+      data: cleanState
     });
   }
 
