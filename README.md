@@ -1,63 +1,64 @@
 # ☢️ Web-based NPP Simulator (Prototype)
 
-> **"원자력 발전소 사고 대응, 웹브라우저에서 바로 체험해보세요."**
+> **"Experience nuclear power plant accident response directly in your web browser."**
 
-이 프로젝트는 **원자력 발전소의 '급수 상실 사고(LOFW)' 시나리오**를 웹에서 간단하게 시뮬레이션해볼 수 있는 프로토타입입니다. 복잡한 프로그램 설치 없이, 링크 하나로 누구나 쉽게 테스트하고 비상 대응 절차를 경험할 수 있습니다.
-
----
-
-## 🎯 이 프로젝트의 목적 (Why?)
-
-1.  **설치 불필요:** EXE 프로그램을 설치할 필요 없이, 크롬/사파리 등 웹브라우저만 있으면 어디서든 실행 가능합니다.
-2.  **사고 대응 체험:** 발전소에 물 공급이 끊기는 비상 상황(LOFW)에서, 운전원이 어떻게 대처해야 하는지 핵심 절차를 테스트합니다.
-3.  **데이터 기반 분석:** 사용자의 조작 패턴을 기록하고, 이를 분석하여 더 나은 대응 매뉴얼이나 AI 조언 시스템을 만드는 데 활용합니다.
+This project is a prototype that allows users to simulate a **Loss of Feedwater (LOFW)** scenario in a nuclear power plant directly on the web. Without installing complex software, anyone can test emergency response procedures using just a link.
 
 ---
 
-## 🕹️ 사용 가이드 (How to Play)
+## 🎯 Project Purpose (Why?)
 
-시뮬레이터를 켜면, 약 **5초 후에 자동으로 사고가 발생**합니다. 당황하지 말고 아래 패널들을 보며 대응하세요.
-
-### 화면 구성 (4분할 레이아웃)
-
-| 위치 | 패널 이름 | 역할 |
-| :--- | :--- | :--- |
-| **왼쪽 위** | **상태 패널 (Status)** | **"계기판"**입니다. 현재 발전소의 물 높이, 압력, 알람 등을 보여줍니다. 빨간 불이 들어오면 문제가 생긴 것입니다. |
-| **왼쪽 아래** | **조작 패널 (Control)** | **"운전대"**입니다. 밸브를 돌리거나(슬라이더), 펌프를 켜고 끄거나(버튼), 원자로를 정지(Trip)시킬 수 있습니다. |
-| **오른쪽 위** | **AI 조언자 (Advisor)** | **"조수"**입니다. "지금 상황이 어때?", "어떻게 해야 해?"라고 물어보면 매뉴얼에 기반해 답변해줍니다. |
-| **오른쪽 아래** | **절차서 (Procedures)** | **"지도"**입니다. 현재 사고 처리 절차 중 어디 단계에 와있는지 그래프로 보여줍니다. |
-
-### 시나리오 선택 (Presets)
-
-왼쪽 아래 패널 상단에서 사고 유형을 선택할 수 있습니다.
-*   **A: CV Issue:** 밸브가 고장난 상황. (수동으로 밸브를 열면 해결됨)
-*   **B: Pump Issue:** 펌프가 꺼진 상황. (다시 켜면 해결됨)
-*   **C: Hard Fail:** 장비가 완전히 고장난 상황. (원자로를 정지시켜야 함)
+1. **No Installation Required:** Runs anywhere with a modern web browser like Chrome or Safari. No EXE installation needed.
+2. **Accident Response Training:** Tests key operator actions during an emergency Loss of Feedwater (LOFW) event.
+3. **Data-Driven Analysis:** Records user actions for analysis to improve response procedures and enable AI-assisted advisory systems.
 
 ---
 
-## 🛠️ 개발자 & 엔지니어를 위한 정보 (Tech Stack)
+## 🕹️ User Guide (How to Play)
 
-이 프로젝트는 최신 웹 기술을 사용하여 빠르고 가볍게 동작하도록 설계되었습니다.
+When the simulator starts, an accident is **automatically triggered after about 5 seconds**. Stay calm and respond by monitoring the panels below.
 
-*   **Frontend:** React (Vite)
-*   **Language:** TypeScript
-*   **Style:** Tailwind CSS (v4)
-*   **State Management:** Zustand (가벼운 상태 관리)
-*   **Visualization:** `react-force-graph-2d` (지식 그래프 시각화)
-*   **AI Integration:** Google Gemini API (GraphRAG 기반 조언)
+### Screen Layout (4-Panel View)
 
-### 설치 및 실행 방법
+| Location         | Panel Name        | Role                                                                                                                         |
+| :--------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| **Top Left**     | **Status Panel**  | The **"instrument panel"**. Displays water level, pressure, alarms, and plant status. Red indicators signal problems.        |
+| **Bottom Left**  | **Control Panel** | The **"control interface"**. Operate valves (sliders), toggle pumps (buttons), or trip the reactor.                          |
+| **Top Right**    | **AI Advisor**    | The **"assistant"**. Ask questions like "What is happening now?" or "What should I do?" to receive procedure-based guidance. |
+| **Bottom Right** | **Procedures**    | The **"map"**. Visualizes the current step within the emergency operating procedure using a graph.                           |
+
+### Scenario Presets
+
+Select the accident type from the top of the Control Panel.
+
+* **A: CV Issue:** Control valve malfunction. (Resolved by manually opening the valve)
+* **B: Pump Issue:** Feedwater pump is off. (Resolved by restarting the pump)
+* **C: Hard Fail:** Severe equipment failure. (Requires reactor trip)
+
+---
+
+## 🛠️ Developer & Engineer Notes (Tech Stack)
+
+This project is designed to be fast and lightweight using modern web technologies.
+
+* **Frontend:** React (Vite)
+* **Language:** TypeScript
+* **Style:** Tailwind CSS (v4)
+* **State Management:** Zustand
+* **Visualization:** `react-force-graph-2d` (knowledge graph visualization)
+* **AI Integration:** Google Gemini API (GraphRAG-based advisory)
+
+### Installation & Run
 
 ```bash
-# 1. 의존성 설치
+# 1. Install dependencies
 npm install
 
-# 2. 개발 서버 실행 (http://localhost:5173)
+# 2. Start development server (http://localhost:5173)
 npm run dev
 
-# 3. 빌드 (배포용)
+# 3. Build for production
 npm run build
 ```
 
-> 💡 **참고:** 더 자세한 시스템 아키텍처와 물리 모델 설명은 [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md) 파일을 참고해주세요.
+> 💡 **Note:** For more detailed system architecture and physical model explanations, see [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md).
