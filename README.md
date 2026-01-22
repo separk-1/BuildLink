@@ -1,120 +1,63 @@
-# Web-Based Nuclear Power Plant Simulator (LOFW Prototype)
+# ☢️ Web-based NPP Simulator (Prototype)
 
-## 1. Project Overview
-This project aims to build a **Web-based Prototype** of a Nuclear Power Plant (NPP) simulator, specifically focusing on the **Loss of Feedwater (LOFW)** scenario. The goal is to provide a simplified, accessible platform for industry partners to test and validate our approach without the friction of installing desktop executables.
+> **"원자력 발전소 사고 대응, 웹브라우저에서 바로 체험해보세요."**
 
-### Key Objectives
-- **Prototype (MVP):** Rapid development of a minimum viable product.
-- **Scenario:** Loss of Feedwater (LOFW).
-- **Platform:** Web-based (React) for easy distribution and testing.
-- **Physics:** Simplified "Fake Physics" optimized for training and decision-making (not high-fidelity engineering analysis).
+이 프로젝트는 **원자력 발전소의 '급수 상실 사고(LOFW)' 시나리오**를 웹에서 간단하게 시뮬레이션해볼 수 있는 프로토타입입니다. 복잡한 프로그램 설치 없이, 링크 하나로 누구나 쉽게 테스트하고 비상 대응 절차를 경험할 수 있습니다.
 
 ---
 
-## 2. Context & Design Decisions
-*(Derived from project logs 2025-2026)*
+## 🎯 이 프로젝트의 목적 (Why?)
 
-- **Web vs. EXE:** We chose a web-based approach to allow decision-makers to easily test the prototype via a URL. If adopted, the core logic can be ported to EXE later if needed.
-- **Control Panel:** Simplified design. We explicitly rejected using the complex RANCOR system directly to avoid unnecessary complexity and generalizability issues.
-- **Layout:** A **4-Split Panel** design was chosen to balance situational awareness, control, and future AI integration.
+1.  **설치 불필요:** EXE 프로그램을 설치할 필요 없이, 크롬/사파리 등 웹브라우저만 있으면 어디서든 실행 가능합니다.
+2.  **사고 대응 체험:** 발전소에 물 공급이 끊기는 비상 상황(LOFW)에서, 운전원이 어떻게 대처해야 하는지 핵심 절차를 테스트합니다.
+3.  **데이터 기반 분석:** 사용자의 조작 패턴을 기록하고, 이를 분석하여 더 나은 대응 매뉴얼이나 AI 조언 시스템을 만드는 데 활용합니다.
 
 ---
 
-## 3. System Architecture (4-Split Layout)
+## 🕹️ 사용 가이드 (How to Play)
 
-The application interface is divided into four quadrants:
+시뮬레이터를 켜면, 약 **5초 후에 자동으로 사고가 발생**합니다. 당황하지 말고 아래 패널들을 보며 대응하세요.
 
-| Quadrant | Panel Name | Functionality |
+### 화면 구성 (4분할 레이아웃)
+
+| 위치 | 패널 이름 | 역할 |
 | :--- | :--- | :--- |
-| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Visualizes the plant state (Mimic Diagram). Shows key metrics like FW Flow, SG Level, SG Pressure, Reactor Power, Turbine Speed, and Alarm Tiles. |
-| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls including Toggles (Pump, Valves), Sliders (Control Valve), and Buttons (Trip). |
-| **Top-Right** | **AI Advisor** | *(Placeholder)* Area for future AI-based decision support and Chatbot. |
-| **Bottom-Right** | **Procedures/KG** | *(Placeholder)* Area for interactive procedures and Knowledge Graph visualization. |
+| **왼쪽 위** | **상태 패널 (Status)** | **"계기판"**입니다. 현재 발전소의 물 높이, 압력, 알람 등을 보여줍니다. 빨간 불이 들어오면 문제가 생긴 것입니다. |
+| **왼쪽 아래** | **조작 패널 (Control)** | **"운전대"**입니다. 밸브를 돌리거나(슬라이더), 펌프를 켜고 끄거나(버튼), 원자로를 정지(Trip)시킬 수 있습니다. |
+| **오른쪽 위** | **AI 조언자 (Advisor)** | **"조수"**입니다. "지금 상황이 어때?", "어떻게 해야 해?"라고 물어보면 매뉴얼에 기반해 답변해줍니다. |
+| **오른쪽 아래** | **절차서 (Procedures)** | **"지도"**입니다. 현재 사고 처리 절차 중 어디 단계에 와있는지 그래프로 보여줍니다. |
 
-![UI Layout](./docs/images/ui_layout.png)
+### 시나리오 선택 (Presets)
+
+왼쪽 아래 패널 상단에서 사고 유형을 선택할 수 있습니다.
+*   **A: CV Issue:** 밸브가 고장난 상황. (수동으로 밸브를 열면 해결됨)
+*   **B: Pump Issue:** 펌프가 꺼진 상황. (다시 켜면 해결됨)
+*   **C: Hard Fail:** 장비가 완전히 고장난 상황. (원자로를 정지시켜야 함)
 
 ---
 
-## 4. Simulation Model ("Fake Physics")
-The simulation does not use complex thermal-hydraulic codes. Instead, it uses simplified ODEs to mimic the *behavior* required for training and decision-making.
+## 🛠️ 개발자 & 엔지니어를 위한 정보 (Tech Stack)
 
-### State Variables
-- `fw_flow` (kg/s)
-- `sg_level` (%)
-- `sg_pressure` (MPa or relative value)
-- `reactor_power` (%)
-- `turbine_speed` (rpm or %)
+이 프로젝트는 최신 웹 기술을 사용하여 빠르고 가볍게 동작하도록 설계되었습니다.
 
-### Control Inputs
-- **Toggles:**
-  - `fw_pump_on` (Boolean)
-  - `fw_iv_open` (Boolean) - Isolation Valve
-  - `msiv_open` (Boolean) - Main Steam Isolation Valve
-- **Sliders:**
-  - `fw_cv` (0.0 to 1.0) - Control Valve
-- **Buttons:**
-  - `TRIP REACTOR`
-  - `TRIP TURBINE`
+*   **Frontend:** React (Vite)
+*   **Language:** TypeScript
+*   **Style:** Tailwind CSS (v4)
+*   **State Management:** Zustand (가벼운 상태 관리)
+*   **Visualization:** `react-force-graph-2d` (지식 그래프 시각화)
+*   **AI Integration:** Google Gemini API (GraphRAG 기반 조언)
 
-### Update Logic (approx. 10Hz)
-The core dynamics are governed by:
+### 설치 및 실행 방법
 
-```javascript
-// Feedwater Flow Calculation
-fw_flow = k * fw_pump_on * fw_iv_open * fw_cv * (1 - fault_severity)
+```bash
+# 1. 의존성 설치
+npm install
 
-// Steam Generator Level Dynamics
-// level increases with inflow, decreases with steam outflow
-sg_level += a * fw_flow - b * steam_out
-// Note: steam_out is derived from reactor power/pressure
+# 2. 개발 서버 실행 (http://localhost:5173)
+npm run dev
+
+# 3. 빌드 (배포용)
+npm run build
 ```
 
-### Alarms
-- `FW LOW FLOW`
-- `SG LOW LEVEL`
-- `RX OVER PWR` (Optional)
-- `HIGH ΔT` (Optional)
-
----
-
-## 5. Logging System
-Logging is a critical requirement for future analysis and Knowledge Graph construction.
-
-### 1. Event Logs
-Records every user interaction.
-- **Format:** `{ timestamp, action_type, target, value, user_id }`
-- **Examples:**
-  - `SET_FW_CV 0.65`
-  - `TOGGLE_PUMP ON`
-  - `PRESS_TRIP_REACTOR`
-
-### 2. State Snapshots
-Records the full system state every **1 second (1Hz)**.
-- **Fields:** `fw_flow`, `sg_level`, `sg_pressure`, `power`, `alarms[]`
-
----
-
-## 6. Technical Stack
-- **Frontend:** React
-- **State Management:** Zustand (Lightweight store for simulation state)
-- **Visualization:** Canvas or SVG (for Mimic Diagram/P&ID)
-- **Deployment:** Vercel/Netlify (Static)
-
----
-
-## 7. Development Plan
-
-### Day 1: UI & Basics
-- Implement the 4-split layout.
-- Create UI components for Controls (Toggles, Sliders).
-- Implement the Status Panel with dummy data.
-
-### Day 2: Physics & Alarms
-- Implement the "Fake Physics" loop (ODEs).
-- Connect Controls to State.
-- Implement Alarm logic (Thresholds).
-
-### Day 3: Logging & Export
-- Implement Event Logging.
-- Implement State Snapshotting (1Hz).
-- Create "Incident Report" JSON export feature.
+> 💡 **참고:** 더 자세한 시스템 아키텍처와 물리 모델 설명은 [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md) 파일을 참고해주세요.
