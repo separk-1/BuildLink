@@ -1,20 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import ForceGraph2D, { type NodeObject, type LinkObject } from 'react-force-graph-2d';
 import { ENTITY_CSV, RELATIONSHIP_CSV } from '../data/graphData';
 import { useSimulationStore } from '../store/simulationStore';
 
-interface Node {
+// Extend NodeObject to include our custom properties
+interface CustomNode extends NodeObject {
   id: string;
   name: string;
   type: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+  val?: number; // for particle size logic if needed
 }
 
-interface Link {
-  source: string;
-  target: string;
+// Extend LinkObject for our custom properties
+interface CustomLink extends LinkObject {
+  source: string | CustomNode;
+  target: string | CustomNode;
   label: string;
 }
 
@@ -32,8 +32,6 @@ const parseCSV = (csv: string) => {
 
 // Map simulation state to active Procedure Node ID
 const getCurrentStepNodeId = (state: any): string | null => {
-    // Simple heuristic mapping based on LOFW progression
-
     // 1. Initial State -> Step 1
     if (state.fw_flow > 1000 && !state.fw_low_flow) return 'pc_st_100_000000'; // STEP1 (Monitoring)
 
@@ -53,268 +51,121 @@ const getCurrentStepNodeId = (state: any): string | null => {
     return null;
 };
 
+// Color mapping based on node type
+const getNodeColor = (type: string) => {
+  switch (type) {
+    case 'PC_ST': return '#3b82f6'; // Blue (Step)
+    case 'PC_LO': return '#eab308'; // Yellow (Logic)
+    case 'CT': return '#22c55e';    // Green (Controller)
+    case 'IC': return '#06b6d4';    // Cyan (Indicator)
+    default: return '#94a3b8';      // Slate (Feature/Other)
+  }
+};
+
 export const ProcedurePanel = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [links, setLinks] = useState<Link[]>([]);
-
-  // Transform State for Zoom/Pan
-  const [transform, setTransform] = useState({ k: 1, x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const fgRef = useRef<any>(undefined);
+  const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
   const [autoFocus, setAutoFocus] = useState(true);
-
-  // Hover Tooltip State
-  const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 }); // Screen/Client space for tooltip div
+  const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const simState = useSimulationStore();
+  const activeNodeId = getCurrentStepNodeId(simState);
+
+  // Resize Observer to handle panel resizing
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        setContainerDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // Parse Data on Mount
   useEffect(() => {
     const entities = parseCSV(ENTITY_CSV);
     const relationships = parseCSV(RELATIONSHIP_CSV);
 
-    const newNodes: Node[] = entities.map((e: any) => ({
+    const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
       name: e.entity_name,
       type: e.entity_type,
-      x: Math.random() * 800,
-      y: Math.random() * 600,
-      vx: 0,
-      vy: 0
+      val: 1
     }));
 
-    const newLinks: Link[] = relationships.map((r: any) => ({
+    const links: CustomLink[] = relationships.map((r: any) => ({
       source: r.src_id,
       target: r.dst_id,
       label: r.edge_name
-    })).filter((l: Link) => {
-        const s = newNodes.find(n => n.id === l.source);
-        const t = newNodes.find(n => n.id === l.target);
-        return s && t;
+    })).filter((l: any) => {
+      // Filter dangling links
+      return nodes.find(n => n.id === l.source) && nodes.find(n => n.id === l.target);
     });
 
-    setNodes(newNodes);
-    setLinks(newLinks);
+    setGraphData({ nodes, links });
   }, []);
 
   // Auto Focus Logic
   useEffect(() => {
-    if (!autoFocus) return;
-    const targetId = getCurrentStepNodeId(simState);
-    if (!targetId) return;
+    if (!autoFocus || !activeNodeId || !fgRef.current) return;
 
-    const targetNode = nodes.find(n => n.id === targetId);
-    if (targetNode && canvasRef.current) {
-        // Smoothly pan to center this node
-        const w = canvasRef.current.width;
-        const h = canvasRef.current.height;
-
-        // Target translation to put node at center:
-        // center_x = node_x * k + tx
-        // tx = center_x - node_x * k
-        const targetTx = (w / 2) - targetNode.x * transform.k;
-        const targetTy = (h / 2) - targetNode.y * transform.k;
-
-        // Lerp
-        setTransform(prev => ({
-            k: prev.k,
-            x: prev.x + (targetTx - prev.x) * 0.05,
-            y: prev.y + (targetTy - prev.y) * 0.05
-        }));
-    }
-  }, [simState, nodes, autoFocus, transform.k]);
-
-  // Interaction Handlers
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const scaleAmount = -e.deltaY * 0.001;
-    const newScale = Math.min(Math.max(0.1, transform.k * (1 + scaleAmount)), 5);
-    setTransform(prev => ({ ...prev, k: newScale }));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setLastPos({ x: e.clientX, y: e.clientY });
-    setAutoFocus(false); // User wants control
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    // 1. Tooltip Detection (World Space)
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (rect) {
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        // Inverse Transform: WorldX = (ScreenX - Tx) / k
-        const worldX = (mouseX - transform.x) / transform.k;
-        const worldY = (mouseY - transform.y) / transform.k;
-
-        const nodeRadius = 10; // slightly larger than visual 8
-        const found = nodes.find(n => {
-            const dx = n.x - worldX;
-            const dy = n.y - worldY;
-            return (dx*dx + dy*dy) < (nodeRadius * nodeRadius);
-        });
-
-        setHoveredNode(found || null);
-        setMousePos({ x: e.clientX, y: e.clientY }); // For tooltip positioning
-    }
-
-    // 2. Dragging Pan
-    if (!isDragging) return;
-    const dx = e.clientX - lastPos.x;
-    const dy = e.clientY - lastPos.y;
-    setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
-    setLastPos({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Force Simulation & Render Loop
-  useEffect(() => {
-    if (nodes.length === 0) return;
-
-    let animationFrameId: number;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const tick = () => {
-      const width = canvas.width;
-      const height = canvas.height;
-
-      // 1. Calculate Forces (Simulation runs in "World Space")
-      // Repulsion
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[j].x - nodes[i].x;
-          const dy = nodes[j].y - nodes[i].y;
-          const distSq = dx * dx + dy * dy || 1;
-          const force = 3000 / distSq; // Reduced from 5000 to stabilize
-          const fx = (dx / Math.sqrt(distSq)) * force;
-          const fy = (dy / Math.sqrt(distSq)) * force;
-
-          nodes[i].vx -= fx;
-          nodes[i].vy -= fy;
-          nodes[j].vx += fx;
-          nodes[j].vy += fy;
-        }
+    // Small delay to allow graph to settle/render before focusing
+    const timer = setTimeout(() => {
+      const node = graphData.nodes.find(n => n.id === activeNodeId);
+      if (node && typeof node.x === 'number' && typeof node.y === 'number') {
+        fgRef.current?.centerAt(node.x, node.y, 1000);
+        fgRef.current?.zoom(2.5, 1000);
       }
+    }, 100);
 
-      // Attraction
-      links.forEach(link => {
-        const source = nodes.find(n => n.id === link.source);
-        const target = nodes.find(n => n.id === link.target);
-        if (source && target) {
-          const dx = target.x - source.x;
-          const dy = target.y - source.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = (dist - 80) * 0.05; // Rest length reduced to 80
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
+    return () => clearTimeout(timer);
+  }, [activeNodeId, autoFocus, graphData]);
 
-          source.vx += fx;
-          source.vy += fy;
-          target.vx -= fx;
-          target.vy -= fy;
-        }
-      });
 
-      // Center Gravity
-      nodes.forEach(node => {
-        node.vx += (400 - node.x) * 0.01;
-        node.vy += (300 - node.y) * 0.01;
+  const paintNode = useCallback((node: CustomNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
+    const isActive = node.id === activeNodeId;
+    const label = node.name;
+    const fontSize = 12 / globalScale;
 
-        // Stronger Damping to stop shaking
-        node.vx *= 0.6; // Was 0.9
-        node.vy *= 0.6;
+    // 1. Draw "Glow" for active node
+    if (isActive) {
+      ctx.beginPath();
+      ctx.arc(node.x!, node.y!, 12, 0, 2 * Math.PI, false);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fill();
 
-        // Cap Velocity
-        const v = Math.sqrt(node.vx*node.vx + node.vy*node.vy);
-        if (v > 5) {
-            node.vx = (node.vx / v) * 5;
-            node.vy = (node.vy / v) * 5;
-        }
-
-        node.x += node.vx;
-        node.y += node.vy;
-      });
-
-      // 2. Render
-      ctx.clearRect(0, 0, width, height);
-
-      ctx.save();
-      // Apply Zoom/Pan
-      ctx.translate(transform.x, transform.y);
-      ctx.scale(transform.k, transform.k);
-
-      // Draw Links
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 1 / transform.k;
-      links.forEach(link => {
-        const source = nodes.find(n => n.id === link.source);
-        const target = nodes.find(n => n.id === link.target);
-        if (source && target) {
-          ctx.beginPath();
-          ctx.moveTo(source.x, source.y);
-          ctx.lineTo(target.x, target.y);
-          ctx.stroke();
-        }
-      });
-
-      // Draw Nodes
-      const activeNodeId = getCurrentStepNodeId(simState);
-
-      nodes.forEach(node => {
-        const isActive = node.id === activeNodeId;
-        const isHovered = hoveredNode?.id === node.id;
-
+      ctx.beginPath();
+      ctx.arc(node.x!, node.y!, 8, 0, 2 * Math.PI, false);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fill();
+    } else {
+        // Standard node circle
         ctx.beginPath();
-        const r = isHovered ? 10 : 8; // Highlight size
-        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-
-        if (isActive) {
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#fff';
-        } else if (isHovered) {
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 5;
-            ctx.fillStyle = '#e2e8f0'; // Light slate
-        } else {
-            ctx.shadowBlur = 0;
-            if (node.type === 'PC_ST') ctx.fillStyle = '#3b82f6';
-            else if (node.type === 'PC_LO') ctx.fillStyle = '#eab308';
-            else if (node.type === 'CT') ctx.fillStyle = '#22c55e';
-            else if (node.type === 'IC') ctx.fillStyle = '#06b6d4';
-            else ctx.fillStyle = '#94a3b8';
-        }
-
+        ctx.arc(node.x!, node.y!, 5, 0, 2 * Math.PI, false);
+        ctx.fillStyle = getNodeColor(node.type);
         ctx.fill();
-        ctx.strokeStyle = (isActive || isHovered) ? '#fff' : '#000';
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+    }
 
-        // Label
-        ctx.fillStyle = '#f1f5f9';
-        ctx.font = '10px Arial';
-        ctx.fillText(node.name.substring(0, 15), node.x + 12, node.y + 3);
-      });
-
-      ctx.restore();
-
-      animationFrameId = requestAnimationFrame(tick);
-    };
-
-    tick();
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [nodes, links, transform, simState, hoveredNode]);
+    // 2. Draw Label (LOD Logic)
+    // Always show label for Active node
+    // For others, only show if zoomed in (globalScale > 1.5)
+    if (isActive || globalScale > 1.2) {
+      ctx.font = `${fontSize}px Sans-Serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = isActive ? '#fff' : 'rgba(255, 255, 255, 0.8)';
+      // Offset text below node
+      ctx.fillText(label, node.x!, node.y! + 8 + fontSize);
+    }
+  }, [activeNodeId]);
 
   return (
     <>
@@ -328,46 +179,53 @@ export const ProcedurePanel = () => {
             >
                 AUTO-FOCUS: {autoFocus ? 'ON' : 'OFF'}
             </button>
-            <span style={{ fontSize: '0.6rem' }}>{nodes.length} Nodes</span>
+            <span style={{ fontSize: '0.6rem' }}>{graphData.nodes.length} Nodes</span>
         </div>
       </div>
-      <div className="panel-content" style={{ padding: 0, overflow: 'hidden', position: 'relative' }}>
-        <canvas
-            ref={canvasRef}
-            width={800}
-            height={600}
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            style={{ width: '100%', height: '100%', background: '#0f172a', cursor: isDragging ? 'grabbing' : 'grab' }}
+
+      <div
+        ref={containerRef}
+        className="panel-content"
+        style={{ padding: 0, overflow: 'hidden', position: 'relative', background: '#0f172a' }}
+      >
+        <ForceGraph2D
+          ref={fgRef}
+          width={containerDimensions.width}
+          height={containerDimensions.height}
+          graphData={graphData}
+          nodeCanvasObject={paintNode}
+          nodeLabel="name"
+          // Physics Configuration to reduce clutter
+          d3VelocityDecay={0.2}
+          cooldownTicks={100}
+          onEngineStop={() => {
+              // Initial center if needed
+              if (autoFocus && activeNodeId) {
+                 const node = graphData.nodes.find(n => n.id === activeNodeId);
+                 if (node && fgRef.current) {
+                     fgRef.current.centerAt(node.x, node.y, 1000);
+                     fgRef.current.zoom(2.5, 1000);
+                 }
+              } else if (fgRef.current) {
+                  fgRef.current.zoomToFit(400);
+              }
+          }}
+          // Customize Links
+          linkColor={() => '#475569'}
+          linkWidth={1}
+          linkDirectionalParticles={1}
+          linkDirectionalParticleWidth={2}
+          onNodeDragEnd={node => {
+            setAutoFocus(false); // Disable auto-focus if user manually moves things
+            if (node.x && node.y) {
+                node.fx = node.x; // Fix position after drag
+                node.fy = node.y;
+            }
+          }}
         />
 
-        {/* Tooltip */}
-        {hoveredNode && (
-            <div style={{
-                position: 'fixed',
-                top: mousePos.y + 10,
-                left: mousePos.x + 10,
-                background: 'rgba(15, 23, 42, 0.9)',
-                border: '1px solid #475569',
-                padding: '6px 10px',
-                borderRadius: '4px',
-                color: '#fff',
-                fontSize: '0.75rem',
-                zIndex: 1000,
-                pointerEvents: 'none',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-            }}>
-                <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{hoveredNode.name}</div>
-                <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Type: {hoveredNode.type}</div>
-                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>ID: {hoveredNode.id}</div>
-            </div>
-        )}
-
         {/* Legend Overlay */}
-        <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none', zIndex: 10 }}>
             <LegendItem color="#3b82f6" label="Step" />
             <LegendItem color="#eab308" label="Logic" />
             <LegendItem color="#22c55e" label="Controller" />
