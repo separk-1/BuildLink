@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { askGemini } from '../utils/gemini';
-import { ENTITY_CSV, RELATIONSHIP_CSV } from '../data/graphData';
 import { useSimulationStore } from '../store/simulationStore';
+import { useGraphData } from '../hooks/useGraphData';
 
 export const AdvisorPanel = () => {
   const [messages, setMessages] = useState<{sender: 'AI' | 'User', text: string}[]>([
@@ -14,6 +14,7 @@ export const AdvisorPanel = () => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   const simState = useSimulationStore();
+  const { entityCsv, relationshipCsv, loading: graphLoading } = useGraphData();
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -22,6 +23,11 @@ export const AdvisorPanel = () => {
     if (!apiKey) {
         setMessages(prev => [...prev, { sender: 'AI', text: 'API Key Missing (Check .env)' }]);
         return;
+    }
+
+    if (graphLoading) {
+         setMessages(prev => [...prev, { sender: 'AI', text: 'System loading knowledge graph. Please wait...' }]);
+         return;
     }
 
     const userQuestion = input;
@@ -40,10 +46,10 @@ export const AdvisorPanel = () => {
     Alarms Active: ${simState.fw_low_flow ? 'FW_LOW_FLOW' : ''} ${simState.sg_low_level ? 'SG_LOW_LEVEL' : ''} ${simState.trip_reactor ? 'REACTOR_TRIPPED' : ''}
 
     RELEVANT PROCEDURES (Knowledge Graph Entities):
-    ${ENTITY_CSV}
+    ${entityCsv}
 
     RELATIONSHIPS:
-    ${RELATIONSHIP_CSV}
+    ${relationshipCsv}
     `;
 
     try {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import ForceGraph2D, { type NodeObject, type LinkObject } from 'react-force-graph-2d';
-import { ENTITY_CSV, RELATIONSHIP_CSV } from '../data/graphData';
 import { useSimulationStore } from '../store/simulationStore';
+import { useGraphData } from '../hooks/useGraphData';
 
 // Extend NodeObject to include our custom properties
 interface CustomNode extends NodeObject {
@@ -33,20 +33,20 @@ const parseCSV = (csv: string) => {
 // Map simulation state to active Procedure Node ID
 const getCurrentStepNodeId = (state: any): string | null => {
     // 1. Initial State -> Step 1
-    if (state.fw_flow > 1000 && !state.fw_low_flow) return 'pc_st_100_000000'; // STEP1 (Monitoring)
+    if (state.fw_flow > 1000 && !state.fw_low_flow) return 'pc_st_01_01'; // STEP1 (Monitoring)
 
     // 2. Low Flow Alarm -> Step 2
-    if (state.fw_low_flow && state.fwcv_mode) return 'pc_st_200_000000'; // STEP2 (Check Auto)
+    if (state.fw_low_flow && state.fwcv_mode) return 'pc_st_02_01'; // STEP2 (Check Auto)
 
     // 3. Manual Mode Taken -> Step 3
-    if (!state.fwcv_mode && state.fw_pump) return 'pc_st_300_000000'; // STEP3 (Pump Check)
+    if (!state.fwcv_mode && state.fw_pump) return 'pc_st_03_01'; // STEP3 (Pump Check)
 
     // 4. Trip Conditions -> Step 4 (Rapid Shutdown)
-    if (state.trip_reactor || state.trip_turbine) return 'pc_st_400_000000'; // STEP4
-
     // Substeps for Trip
-    if (state.trip_turbine && state.turbine_speed_cv === 0) return 'pc_st_420_000000'; // Turbine Trip Verify
-    if (state.trip_reactor && state.all_rods_down) return 'pc_st_430_000000'; // Reactor Trip Verify
+    if (state.trip_turbine && state.turbine_speed_cv === 0) return 'pc_st_05_02'; // Turbine Trip Verify
+    if (state.trip_reactor && state.all_rods_down) return 'pc_st_06_02'; // Reactor Trip Verify
+
+    if (state.trip_reactor || state.trip_turbine) return 'pc_st_04_01'; // STEP4
 
     return null;
 };
@@ -70,6 +70,7 @@ export const ProcedurePanel = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const simState = useSimulationStore();
+  const { entityCsv, relationshipCsv, loading } = useGraphData();
   const activeNodeId = getCurrentStepNodeId(simState);
 
   // Resize Observer to handle panel resizing
@@ -89,10 +90,12 @@ export const ProcedurePanel = () => {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Parse Data on Mount
+  // Parse Data when available
   useEffect(() => {
-    const entities = parseCSV(ENTITY_CSV);
-    const relationships = parseCSV(RELATIONSHIP_CSV);
+    if (loading || !entityCsv || !relationshipCsv) return;
+
+    const entities = parseCSV(entityCsv);
+    const relationships = parseCSV(relationshipCsv);
 
     const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
@@ -111,7 +114,7 @@ export const ProcedurePanel = () => {
     });
 
     setGraphData({ nodes, links });
-  }, []);
+  }, [entityCsv, relationshipCsv, loading]);
 
   // Auto Focus Logic
   useEffect(() => {
