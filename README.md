@@ -1,103 +1,64 @@
-# NPP Web Simulator (LOFW Prototype)
+# ☢️ Web-based NPP Simulator (Prototype)
 
-![Design Reference](./design_reference.png)
+> **"Experience nuclear power plant accident response directly in your web browser."**
 
-## 1. Project Context & Objectives
-**Goal:** Develop a **Web-based Nuclear Power Plant (NPP) Simulator Prototype** specifically for the **Loss of Feedwater (LOFW)** scenario.
-
-### Why Web-Based? (2026-01-18 Context)
-- **Accessibility:** We are building a prototype to be tested by various industry partners. Distributing an `.exe` file creates friction and security concerns for decision-makers.
-- **Ease of Testing:** A web link allows immediate access for evaluation.
-- **Scalability:** If adopted, the core logic can be ported to a desktop application or expanded as a full web platform.
-
-### Design Philosophy
-- **Simplified Interface:** We explicitly rejected using the RANCOR system directly.
-- **Focus:** Loss of Feedwater (LOFW) scenario.
-    - Cause: Automatic valve control failure or pump failure.
-    - Resolution: Rapid shutdown (Reactor Trip) if manual control fails.
+This project is a prototype that allows users to simulate a **Loss of Feedwater (LOFW)** scenario in a nuclear power plant directly on the web. Without installing complex software, anyone can test emergency response procedures using just a link.
 
 ---
 
-## 2. System Architecture
+## 🎯 Project Purpose (Why?)
 
-### Tech Stack
-- **Frontend:** React + Vite + Tailwind CSS + Zustand (State Management).
-- **Visualization:** Canvas/SVG for the Plant Mimic.
-- **Logging:** Client-side JSON generation (for Knowledge Graph research).
-
-### Screen Layout (4-Split Design)
-| Location | Component | Description |
-| :--- | :--- | :--- |
-| **Top-Left** | **Status/Display Panel** | **(Read-Only)** Simplified mimic. Shows FW Flow, SG Level, Reactor Power, Turbine Speed. |
-| **Bottom-Left** | **Control Panel** | **(Interactive)** Operator controls (Toggles, Sliders, Buttons). |
-| **Top-Right** | **AI Advisor** | Future LLM-based decision support. |
-| **Bottom-Right** | **Procedures** | Interactive procedures/Knowledge Graph. |
+1. **No Installation Required:** Runs anywhere with a modern web browser like Chrome or Safari. No EXE installation needed.
+2. **Accident Response Training:** Tests key operator actions during an emergency Loss of Feedwater (LOFW) event.
+3. **Data-Driven Analysis:** Records user actions for analysis to improve response procedures and enable AI-assisted advisory systems.
 
 ---
 
-## 3. Simulation Logic ("Fake Physics")
-The physics model uses simplified ODEs running at **10Hz**.
+## 🕹️ User Guide (How to Play)
 
-### State Variables
-- `fw_flow` (kg/s)
-- `sg_level` (%)
-- `sg_pressure` (MPa)
-- `reactor_power` (%)
-- `turbine_speed` (rpm)
+When the simulator starts, an accident is **automatically triggered after about 5 seconds**. Stay calm and respond by monitoring the panels below.
 
-### Controls (Inputs)
-- **Toggles:**
-  - `FW Pump` (ON/OFF)
-  - `FW Isolation Valve` (OPEN/CLOSE)
-  - `Main Steam Isolation Valve (MSIV)` (OPEN/CLOSE)
-- **Sliders:**
-  - `FW Control Valve` (0-100%)
-- **Buttons:**
-  - `TRIP REACTOR`
-  - `TRIP TURBINE`
+### Screen Layout (4-Panel View)
 
-### Dynamics Equations
-1.  **Feedwater Flow:**
-    ```
-    fw_flow = k * fw_pump_on * fw_iv_open * fw_cv_position * (1 - fault_severity)
-    ```
-2.  **Steam Generator Level:**
-    ```
-    d(level)/dt = a * fw_flow - b * steam_out
-    ```
-    *Note: `steam_out` is derived from reactor power and MSIV status.*
+| Location         | Panel Name        | Role                                                                                                                         |
+| :--------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| **Top Left**     | **Status Panel**  | The **"instrument panel"**. Displays water level, pressure, alarms, and plant status. Red indicators signal problems.        |
+| **Bottom Left**  | **Control Panel** | The **"control interface"**. Operate valves (sliders), toggle pumps (buttons), or trip the reactor.                          |
+| **Top Right**    | **AI Advisor**    | The **"assistant"**. Ask questions like "What is happening now?" or "What should I do?" to receive procedure-based guidance. |
+| **Bottom Right** | **Procedures**    | The **"map"**. Visualizes the current step within the emergency operating procedure using a graph.                           |
 
-### Alarms
-- `FW LOW FLOW`
-- `SG LOW LEVEL`
-- `RX OVER POWER`
-- `HIGH ΔT`
+### Scenario Presets
+
+Select the accident type from the top of the Control Panel.
+
+* **A: CV Issue:** Control valve malfunction. (Resolved by manually opening the valve)
+* **B: Pump Issue:** Feedwater pump is off. (Resolved by restarting the pump)
+* **C: Hard Fail:** Severe equipment failure. (Requires reactor trip)
 
 ---
 
-## 4. Logging Requirement
-Critical for building the dataset for the Knowledge Graph.
+## 🛠️ Developer & Engineer Notes (Tech Stack)
 
-1.  **Event Logs:** User actions (e.g., `TOGGLE_PUMP`, `SET_FW_CV` `0.65`).
-2.  **State Snapshots:** Recorded every **1 second (1Hz)** containing all state variables and active alarms.
+This project is designed to be fast and lightweight using modern web technologies.
 
----
+* **Frontend:** React (Vite)
+* **Language:** TypeScript
+* **Style:** Tailwind CSS (v4)
+* **State Management:** Zustand
+* **Visualization:** `react-force-graph-2d` (knowledge graph visualization)
+* **AI Integration:** Google Gemini API (GraphRAG-based advisory)
 
-## 5. How to Run
-
-### Development Setup
-This project uses **Vite** with **Tailwind CSS**. Due to recent updates in the Tailwind ecosystem, we use `@tailwindcss/postcss`.
+### Installation & Run
 
 ```bash
-# 1. Install dependencies (including Tailwind and PostCSS)
+# 1. Install dependencies
 npm install
-npm install -D tailwindcss @tailwindcss/postcss postcss autoprefixer
 
-# 2. Start Development Server
+# 2. Start development server (http://localhost:5173)
 npm run dev
-```
 
-### Build for Production
-```bash
+# 3. Build for production
 npm run build
 ```
+
+> 💡 **Note:** For more detailed system architecture and physical model explanations, see [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md).

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSimulationStore } from '../store/simulationStore';
+import { useSimulationStore, type ScenarioPreset } from '../store/simulationStore';
 import { logger } from '../utils/logger';
 
 export const ControlPanel = () => {
@@ -7,15 +7,41 @@ export const ControlPanel = () => {
 
   return (
     <>
-      <div className="panel-title">
+      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>CONTROL PANEL</span>
-        <button
-          className="dcs-btn"
-          onClick={() => logger.exportLogs()}
-          style={{ padding: '2px 8px', fontSize: '0.6rem' }}
-        >
-          EXPORT LOGS
-        </button>
+
+        {/* Top Right Config Area */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* Scenario Selector */}
+            <select
+                className="dcs-select"
+                value={s.scenarioPreset}
+                onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
+                title="Scenario Preset"
+            >
+                <option value="cv">A: CV Issue</option>
+                <option value="pump">B: Pump Issue</option>
+                <option value="hard">C: Hard Fail</option>
+            </select>
+
+             {/* Training Mode Toggle */}
+             <button
+                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                onClick={s.toggleTrainingMode}
+                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                title="Training Mode (Randomness)"
+             >
+                TRN: {s.trainingMode ? 'ON' : 'OFF'}
+             </button>
+
+            <button
+                className="dcs-btn"
+                onClick={() => logger.exportLogs()}
+                style={{ padding: '2px 8px', fontSize: '0.6rem' }}
+            >
+                LOGS
+            </button>
+        </div>
       </div>
       <div className="panel-content" style={{ gap: '12px' }}>
 

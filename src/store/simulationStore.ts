@@ -5,7 +5,14 @@ import { logger } from '../utils/logger';
 const TICK_RATE = 100; // ms (10Hz)
 const DT = TICK_RATE / 1000; // seconds
 
+export type ScenarioPreset = 'cv' | 'pump' | 'hard';
+
 interface SimulationState {
+  // --- System Configuration ---
+  scenarioPreset: ScenarioPreset;
+  trainingMode: boolean; // false = Deterministic, true = Stochastic
+  time: number; // Simulation time in seconds
+
   // --- System State (Float/Int) ---
   last_log_time: number;
 
@@ -53,7 +60,7 @@ interface SimulationState {
   trip_turbine: boolean;
 
   // --- Malfunctions (Hidden) ---
-  fault_severity: number;
+  fault_active: boolean; // Triggered after 5-10s
 
   // --- Annunciators (Boolean - Read Only) ---
   // Primary
@@ -84,6 +91,10 @@ interface SimulationState {
   not_synced_to_grid: boolean;
 
   // --- Actions ---
+  setScenarioPreset: (preset: ScenarioPreset) => void;
+  toggleTrainingMode: () => void;
+  resetSimulation: () => void;
+
   // Reactor Controls
   toggleTripReactor: () => void;
   toggleSi: () => void;
@@ -107,12 +118,13 @@ interface SimulationState {
 }
 
 // Helper to add noise
-const addNoise = (val: number, magnitude: number) => {
+const addNoise = (val: number, magnitude: number, trainingMode: boolean) => {
+    if (!trainingMode) return val; // Deterministic if trainingMode is OFF
     return val + (Math.random() - 0.5) * magnitude;
 };
 
-export const useSimulationStore = create<SimulationState>((set, get) => ({
-  // --- Initial State ---
+const INITIAL_STATE = {
+  time: 0,
   last_log_time: 0,
 
   // Reactor
@@ -156,7 +168,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   trip_turbine: false,
 
-  fault_severity: 0.0,
+  fault_active: false,
 
   // Annunciators (Init all false)
   rx_over_limit: false,
@@ -180,6 +192,16 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   ready_to_sync: false,
   not_latched: false,
   not_synced_to_grid: false,
+};
+
+export const useSimulationStore = create<SimulationState>((set, get) => ({
+  ...INITIAL_STATE,
+  scenarioPreset: 'cv',
+  trainingMode: false,
+
+  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE }),
+  toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),
+  resetSimulation: () => set((state) => ({ ...INITIAL_STATE, scenarioPreset: state.scenarioPreset, trainingMode: state.trainingMode })),
 
   // --- Actions ---
   toggleTripReactor: () => {
@@ -255,6 +277,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   tick: () => {
     const s = get();
     let updates: any = {};
+    const new_time = s.time + DT;
+    updates.time = new_time;
+
+    // --- Scenario Trigger Logic (T=5s) ---
+    // If not yet active, and time > 5s, trigger it
+    let fault_active = s.fault_active;
+    if (!fault_active && new_time >= 5.0) {
+        fault_active = true;
+        updates.fault_active = true;
+        // Apply initial fault side-effects if needed
+        if (s.scenarioPreset === 'pump') {
+             updates.fw_pump = false; // Trip pump
+        }
+    }
 
     // 1. Reactor Logic
     let target_reactivity = s.reactivity;
@@ -279,17 +315,42 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // 2. Feedwater Logic
     let new_fwcv_degree = s.fwcv_degree;
+    let auto_correction = 0;
+
+    // Auto Mode Logic
     if (s.fwcv_mode) {
-        // Auto: Maintain 50%
         const error = 50.0 - s.sg_level;
-        const correction = error * 0.005;
-        new_fwcv_degree = Math.max(0, Math.min(1, s.fwcv_degree + correction));
+        auto_correction = error * 0.005;
+
+        // Scenario A (CV Issue): If fault active, Auto fails (drifts closed or stuck)
+        // Implementation: If CV Issue & Active, Auto logic drives it to 0 regardless of level
+        if (fault_active && s.scenarioPreset === 'cv') {
+             auto_correction = -0.01; // Drift closed
+        }
+
+        new_fwcv_degree = Math.max(0, Math.min(1, s.fwcv_degree + auto_correction));
+    } else {
+        // Manual Mode:
+        // If Scenario A (CV Issue): Manual works fine (user can open it).
+        // So no change needed here.
     }
 
-    // Calc Flow
-    let avail_pump_head = s.fw_pump ? 2000 : 0;
+    // Pump Logic
+    let pump_on = s.fw_pump;
+    // Scenario B (Pump Issue): Pump trips at T=5. User can restart it.
+    // Logic: If fault active, we already set pump to false in the trigger block.
+    // If user toggles it back ON (s.fw_pump is true), it works.
+
+    // Flow Calculation
+    let avail_pump_head = pump_on ? 2000 : 0;
     if (!s.fwiv) avail_pump_head = 0;
-    let target_fw_flow = avail_pump_head * new_fwcv_degree * (1 - s.fault_severity);
+
+    let flow_factor_fault = 1.0;
+    if (fault_active && s.scenarioPreset === 'hard') {
+        flow_factor_fault = 0.0; // Total blockage
+    }
+
+    let target_fw_flow = avail_pump_head * new_fwcv_degree * flow_factor_fault;
     let new_fw_flow = s.fw_flow + (target_fw_flow - s.fw_flow) * 0.1;
 
     // 3. SG Logic
@@ -316,31 +377,29 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates = {
         ...updates,
         reactivity: new_reactivity,
-        display_reactivity: addNoise(new_reactivity, 0.5),
+        display_reactivity: addNoise(new_reactivity, 0.5, s.trainingMode),
 
         pri_flow: new_pri_flow,
-        display_pri_flow: addNoise(new_pri_flow, 500),
+        display_pri_flow: addNoise(new_pri_flow, 500, s.trainingMode),
 
         core_t: new_core_t,
-        display_core_t: addNoise(new_core_t, 1.0),
+        display_core_t: addNoise(new_core_t, 1.0, s.trainingMode),
 
         fw_flow: new_fw_flow,
-        display_fw_flow: addNoise(new_fw_flow, 20),
+        display_fw_flow: addNoise(new_fw_flow, 20, s.trainingMode),
 
         fwcv_degree: new_fwcv_degree,
 
         sg_level: new_sg_level,
-        display_sg_level: addNoise(new_sg_level, 0.5),
+        display_sg_level: addNoise(new_sg_level, 0.5, s.trainingMode),
 
         steam_press: new_press,
-        display_steam_press: addNoise(new_press, 0.5),
+        display_steam_press: addNoise(new_press, 0.5, s.trainingMode),
 
         turbine_rpm: new_rpm,
     };
 
-    // --- Annunciator Logic (Uses True Values usually, or Display? Standard is sensors have noise, so logic uses sensed values. But for simpler physics, let's use True values for logic, Display for UI) ---
-    // User requirement: "Has Noise = Yes" implies display state has noise. Logic usually runs on sensor data (which has noise).
-    // I'll use True values for the "Logic" thresholds to avoid flickering alarms unless I add hysteresis.
+    // --- Annunciator Logic (Uses True Values) ---
 
     // Primary
     updates.rx_over_limit = new_reactivity > 102;
@@ -356,7 +415,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates.sg_high_level = new_sg_level > 80;
     updates.sg_low_level = new_sg_level < 30;
     updates.fw_low_flow = new_fw_flow < 500 && new_reactivity > 10;
-    updates.fw_pump_trip = !s.fw_pump;
+    updates.fw_pump_trip = !pump_on;
     updates.low_turbine_pressure = new_press < 40;
     updates.ms_rad_monitor = false;
 
