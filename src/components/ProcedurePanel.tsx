@@ -170,6 +170,37 @@ export const ProcedurePanel = () => {
     }
   }, [activeNodeId]);
 
+  const paintLink = useCallback((link: CustomLink, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      // 1. Draw Line
+      const start = link.source as CustomNode;
+      const end = link.target as CustomNode;
+
+      if (typeof start !== 'object' || typeof end !== 'object') return;
+
+      ctx.beginPath();
+      ctx.moveTo(start.x!, start.y!);
+      ctx.lineTo(end.x!, end.y!);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1 / globalScale;
+      ctx.stroke();
+
+      // 2. Draw Label
+      if (link.label) {
+          const midX = (start.x! + end.x!) / 2;
+          const midY = (start.y! + end.y!) / 2;
+          const fontSize = 10 / globalScale; // Scaled font size
+
+          // Optional: Only show if zoomed in
+          if (globalScale > 0.5) {
+              ctx.font = `${fontSize}px Sans-Serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#94a3b8'; // Muted text
+              ctx.fillText(link.label, midX, midY);
+          }
+      }
+  }, []);
+
   return (
     <>
       <div className="panel-title">
@@ -197,6 +228,8 @@ export const ProcedurePanel = () => {
           height={containerDimensions.height}
           graphData={graphData}
           nodeCanvasObject={paintNode}
+          linkCanvasObject={paintLink}
+          linkCanvasObjectMode={() => 'replace'}
           nodeLabel="name"
           // Physics Configuration to reduce clutter
           d3VelocityDecay={0.2}

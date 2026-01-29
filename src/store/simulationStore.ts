@@ -31,6 +31,7 @@ interface SimulationState {
   display_fw_flow: number; // Noisy
 
   fwcv_degree: number;     // 0.0 - 1.0
+  fwcv_continuous: number; // 0.0 - 1.0 (Internal continuous)
   sg_level: number;        // 0-100%
   display_sg_level: number;// Noisy
 
@@ -142,6 +143,7 @@ const INITIAL_STATE = {
   display_fw_flow: 1500,
 
   fwcv_degree: 0.8,
+  fwcv_continuous: 0.8,
 
   sg_level: 50.0,
   display_sg_level: 50.0,
@@ -234,7 +236,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         // Enforce 0.1 step rounding if not done by UI
         const steppedVal = Math.round(val * 10) / 10;
         logger.logAction('SET_FWCV_DEGREE', { target: 'fwcv_degree', value: steppedVal });
-        set({ fwcv_degree: steppedVal });
+        set({ fwcv_degree: steppedVal, fwcv_continuous: steppedVal });
       }
   },
   toggleFwiv: () => {
@@ -315,6 +317,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // 2. Feedwater Logic
     let new_fwcv_degree = s.fwcv_degree;
+    let new_fwcv_continuous = s.fwcv_continuous;
     let auto_correction = 0;
 
     // Auto Mode Logic
@@ -328,7 +331,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
              auto_correction = -0.01; // Drift closed
         }
 
-        new_fwcv_degree = Math.max(0, Math.min(1, s.fwcv_degree + auto_correction));
+        new_fwcv_continuous = Math.max(0, Math.min(1, s.fwcv_continuous + auto_correction));
+        // Stepped logic: Round to nearest 0.1
+        new_fwcv_degree = Math.round(new_fwcv_continuous * 10) / 10;
     } else {
         // Manual Mode:
         // If Scenario A (CV Issue): Manual works fine (user can open it).
@@ -389,6 +394,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         display_fw_flow: addNoise(new_fw_flow, 20, s.trainingMode),
 
         fwcv_degree: new_fwcv_degree,
+        fwcv_continuous: new_fwcv_continuous,
 
         sg_level: new_sg_level,
         display_sg_level: addNoise(new_sg_level, 0.5, s.trainingMode),
