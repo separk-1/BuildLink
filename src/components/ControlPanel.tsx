@@ -2,6 +2,12 @@ import React from 'react';
 import { useSimulationStore, type ScenarioPreset } from '../store/simulationStore';
 import { logger } from '../utils/logger';
 
+const formatTime = (t: number) => {
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
 export const ControlPanel = () => {
   const s = useSimulationStore();
 
@@ -9,41 +15,9 @@ export const ControlPanel = () => {
     <>
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>CONTROL PANEL</span>
-
-        {/* Top Right Config Area */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-             {/* Training Mode Toggle */}
-             <button
-                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
-                onClick={s.toggleTrainingMode}
-                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
-                title="Training Mode (Randomness)"
-             >
-                TRN: {s.trainingMode ? 'ON' : 'OFF'}
-             </button>
-
-            {/* Scenario Selector */}
-            {!s.trainingMode && (
-                <select
-                    className="dcs-select"
-                    value={s.scenarioPreset}
-                    onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
-                    title="Scenario Preset"
-                >
-                    <option value="cv">A: CV Issue</option>
-                    <option value="pump">B: Pump Issue</option>
-                    <option value="hard">C: Hard Fail</option>
-                </select>
-            )}
-
-            <button
-                className="dcs-btn"
-                onClick={() => logger.exportLogs()}
-                style={{ padding: '2px 8px', fontSize: '0.6rem' }}
-            >
-                LOGS
-            </button>
-        </div>
+        <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--color-info)' }}>
+            {formatTime(s.time)}
+        </span>
       </div>
       <div className="panel-content" style={{ gap: '12px' }}>
 
@@ -91,6 +65,60 @@ export const ControlPanel = () => {
              <Slider label="BYPASS CV" value={s.turbine_bypass_cv} onChange={s.setTurbineBypassCv} />
         </ControlColumn>
 
+      </div>
+
+      <div style={{
+          padding: '8px 12px',
+          borderTop: '1px solid var(--border-color)',
+          backgroundColor: 'rgba(0,0,0,0.2)',
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          justifyContent: 'flex-end'
+      }}>
+             {/* Training Mode Toggle */}
+             <button
+                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                onClick={s.toggleTrainingMode}
+                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                title="Training Mode (Randomness)"
+             >
+                TRN: {s.trainingMode ? 'ON' : 'OFF'}
+             </button>
+
+            {/* Scenario Selector */}
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    value={s.scenarioPreset}
+                    onChange={(e) => {
+                        if (window.confirm("Changing scenario will reset the simulation. Continue?")) {
+                            s.setScenarioPreset(e.target.value as ScenarioPreset);
+                        }
+                    }}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">A: CV Issue</option>
+                    <option value="pump">B: Pump Issue</option>
+                    <option value="hard">C: Hard Fail</option>
+                </select>
+            )}
+
+            <button
+                className="dcs-btn"
+                onClick={s.resetSimulation}
+                style={{ padding: '2px 8px', fontSize: '0.6rem' }}
+            >
+                RESTART
+            </button>
+
+            <button
+                className="dcs-btn"
+                onClick={() => logger.exportLogs()}
+                style={{ padding: '2px 8px', fontSize: '0.6rem' }}
+            >
+                LOGS
+            </button>
       </div>
     </>
   );
