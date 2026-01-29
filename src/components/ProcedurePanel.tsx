@@ -62,6 +62,52 @@ const getNodeColor = (type: string) => {
   }
 };
 
+const NAME_MAPPING: Record<string, string> = {
+    'Feedwater Flow': 'fw_flow',
+    'FW Flow': 'fw_flow',
+    'Steam Pressure': 'steam_press',
+    'Stm Press': 'steam_press',
+    'SG Level': 'sg_level',
+    'Reactivity': 'reactivity',
+    'Core Temp': 'core_t',
+    'Primary Flow': 'pri_flow',
+    'Turbine Speed': 'turbine_rpm',
+    'FW Low Flow': 'fw_low_flow',
+    'SG High Level': 'sg_high_level',
+    'SG Low Level': 'sg_low_level',
+    'Reactor Trip': 'trip_reactor',
+    'Turbine Trip': 'trip_turbine'
+};
+
+// Helper to try and find a value in simulation state that matches the node
+const getNodeValue = (node: CustomNode, state: any): string | number | null => {
+    // 1. Try exact ID match
+    if (state[node.id] !== undefined) return state[node.id];
+
+    // 2. Try ID as key (normalize) - e.g. "FW Flow" -> "fw_flow"
+    const normalizedId = node.id.toLowerCase().replace(/ /g, '_');
+    if (state[normalizedId] !== undefined) return state[normalizedId];
+
+    // 3. Try Name as key
+    if (node.name) {
+        const normalizedName = node.name.toLowerCase().replace(/ /g, '_');
+        if (state[normalizedName] !== undefined) return state[normalizedName];
+
+        // 4. Try display_ prefix
+        const displayKey = `display_${normalizedName}`;
+        if (state[displayKey] !== undefined) return state[displayKey];
+
+        // 5. Try explicit mapping
+        if (NAME_MAPPING[node.name]) {
+             const key = NAME_MAPPING[node.name];
+             if (state[key] !== undefined) return state[key];
+             if (state[`display_${key}`] !== undefined) return state[`display_${key}`];
+        }
+    }
+
+    return null;
+};
+
 export const ProcedurePanel = () => {
   const fgRef = useRef<any>(undefined);
   const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
@@ -197,7 +243,15 @@ export const ProcedurePanel = () => {
           height={containerDimensions.height}
           graphData={graphData}
           nodeCanvasObject={paintNode}
-          nodeLabel="name"
+          nodeLabel={(node: any) => {
+              const val = getNodeValue(node, simState);
+              if (val !== null && val !== undefined) {
+                  // Format number if it is a number
+                  const displayVal = typeof val === 'number' ? val.toFixed(2) : val;
+                  return `${node.name}\nValue: ${displayVal}`;
+              }
+              return node.name;
+          }}
           // Physics Configuration to reduce clutter
           d3VelocityDecay={0.2}
           cooldownTicks={100}
@@ -214,6 +268,48 @@ export const ProcedurePanel = () => {
               }
           }}
           // Customize Links
+          linkCanvasObjectMode={() => 'after'}
+          linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+             const label = link.label;
+             if (!label) return;
+
+             const fontSize = 10 / globalScale;
+             ctx.font = `${fontSize}px Sans-Serif`;
+             const textWidth = ctx.measureText(label).width;
+             const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); // some padding
+
+             const start = link.source;
+             const end = link.target;
+             // ignore unbound links
+             if (typeof start !== 'object' || typeof end !== 'object') return;
+
+             const x = (start.x + end.x) / 2;
+             const y = (start.y + end.y) / 2;
+
+             ctx.save();
+             ctx.translate(x, y);
+
+             // Rotate label to align with link
+             const angle = Math.atan2(end.y - start.y, end.x - start.x);
+             // Keep text upright
+             if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+                 ctx.rotate(angle + Math.PI);
+             } else {
+                 ctx.rotate(angle);
+             }
+
+             // Background
+             ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+             ctx.fillRect(-bckgDimensions[0] / 2, -bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1]);
+
+             // Text
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+             ctx.fillStyle = '#94a3b8';
+             ctx.fillText(label, 0, 0);
+
+             ctx.restore();
+          }}
           linkColor={() => '#475569'}
           linkWidth={1}
           linkDirectionalParticles={1}

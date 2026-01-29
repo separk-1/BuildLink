@@ -13,16 +13,18 @@ export const ControlPanel = () => {
         {/* Top Right Config Area */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* Scenario Selector */}
-            <select
-                className="dcs-select"
-                value={s.scenarioPreset}
-                onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
-                title="Scenario Preset"
-            >
-                <option value="cv">A: CV Issue</option>
-                <option value="pump">B: Pump Issue</option>
-                <option value="hard">C: Hard Fail</option>
-            </select>
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    value={s.scenarioPreset}
+                    onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">A: CV Issue</option>
+                    <option value="pump">B: Pump Issue</option>
+                    <option value="hard">C: Hard Fail</option>
+                </select>
+            )}
 
              {/* Training Mode Toggle */}
              <button
