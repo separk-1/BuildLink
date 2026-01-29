@@ -197,7 +197,7 @@ const INITIAL_STATE = {
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   ...INITIAL_STATE,
   scenarioPreset: 'cv',
-  trainingMode: false,
+  trainingMode: true,
 
   setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE }),
   toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),

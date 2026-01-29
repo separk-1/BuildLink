@@ -12,18 +12,6 @@ export const ControlPanel = () => {
 
         {/* Top Right Config Area */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* Scenario Selector */}
-            <select
-                className="dcs-select"
-                value={s.scenarioPreset}
-                onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
-                title="Scenario Preset"
-            >
-                <option value="cv">A: CV Issue</option>
-                <option value="pump">B: Pump Issue</option>
-                <option value="hard">C: Hard Fail</option>
-            </select>
-
              {/* Training Mode Toggle */}
              <button
                 className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
@@ -33,6 +21,20 @@ export const ControlPanel = () => {
              >
                 TRN: {s.trainingMode ? 'ON' : 'OFF'}
              </button>
+
+            {/* Scenario Selector */}
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    value={s.scenarioPreset}
+                    onChange={(e) => s.setScenarioPreset(e.target.value as ScenarioPreset)}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">A: CV Issue</option>
+                    <option value="pump">B: Pump Issue</option>
+                    <option value="hard">C: Hard Fail</option>
+                </select>
+            )}
 
             <button
                 className="dcs-btn"
@@ -51,7 +53,7 @@ export const ControlPanel = () => {
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%'}}>
                  <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
                  <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
-                 <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} />
+                 <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
         </ControlColumn>
 
@@ -59,8 +61,8 @@ export const ControlPanel = () => {
         <ControlColumn label="STEAM GEN">
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', width: '100%'}}>
                 <ToggleButton label="FW PUMP" active={s.fw_pump} onClick={s.toggleFwPump} />
-                <ToggleButton label="FW IV" active={s.fwiv} onClick={s.toggleFwiv} />
-                <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} />
+                <ToggleButton label="FW IV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
+                <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }}></div>
@@ -103,14 +105,14 @@ const ControlColumn = ({ label, children }: { label: string, children: React.Rea
   </div>
 );
 
-const ToggleButton = ({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) => (
+const ToggleButton = ({ label, active, onClick, onLabel = 'ON', offLabel = 'OFF' }: { label: string, active: boolean, onClick: () => void, onLabel?: string, offLabel?: string }) => (
     <button
         onClick={onClick}
-        className={`dcs-btn ${active ? 'active-green' : 'active-yellow'}`}
+        className={`dcs-btn ${active ? 'active-green' : ''}`}
         style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
     >
         <span style={{ fontSize: '0.65rem', marginBottom: '2px' }}>{label}</span>
-        <span>{active ? 'ON' : 'OFF'}</span>
+        <span>{active ? onLabel : offLabel}</span>
     </button>
 );
 

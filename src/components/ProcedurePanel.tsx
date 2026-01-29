@@ -209,8 +209,6 @@ export const ProcedurePanel = () => {
                      fgRef.current.centerAt(node.x, node.y, 1000);
                      fgRef.current.zoom(2.5, 1000);
                  }
-              } else if (fgRef.current) {
-                  fgRef.current.zoomToFit(400);
               }
           }}
           // Customize Links
