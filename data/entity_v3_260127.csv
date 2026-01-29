@@ -1,0 +1,95 @@
+entity_id,entity_name,entity_type,entity_value
+pc_st_01_01,STEP 1.1,PC_ST,na
+pc_st_01_02,STEP 1.2,PC_ST,na
+pc_st_02_01,STEP 2.1,PC_ST,na
+pc_st_02_02,STEP 2.2,PC_ST,na
+pc_st_02_03,STEP 2.3,PC_ST,na
+pc_st_03_01,STEP 3.1,PC_ST,na
+pc_st_03_02,STEP 3.2,PC_ST,na
+pc_st_04_01,STEP 4.1,PC_ST,na
+pc_st_04_02,STEP 4.2,PC_ST,na
+pc_st_05_01,STEP 5.1,PC_ST,na
+pc_st_05_02,STEP 5.2,PC_ST,na
+pc_st_05_03,STEP 5.3,PC_ST,na
+pc_st_06_01,STEP 6.1,PC_ST,na
+pc_st_06_02,STEP 6.2,PC_ST,na
+pc_st_06_03,STEP 6.3,PC_ST,na
+pc_st_07_01,STEP 7.1,PC_ST,na
+pc_st_07_02,STEP 7.2,PC_ST,na
+pc_st_08_01,STEP 8.1,PC_ST,na
+pc_st_08_02,STEP 8.2,PC_ST,na
+pc_st_08_03,STEP 8.3,PC_ST,na
+pc_st_09_01,STEP 9.1,PC_ST,na
+pc_st_10_01,STEP 10.1,PC_ST,na
+pc_st_10_02,STEP 10.2,PC_ST,na
+pc_st_10_03,STEP 10.3,PC_ST,na
+pc_st_10_04,STEP 10.4,PC_ST,na
+ic_01,FEEDWATER LOW FLOW Annunciator,IC,na
+pc_ft_01_01_s,Value,PC_FT,illuminated
+ic_11,Feedwater Flow,IC,na
+pc_ft_01_02_s,Value,PC_FT,1000 L/sec
+ct_01,Feedwater Control Valve,CT,na
+pc_ft_02_01_s,Value,PC_FT,manual mode
+pc_ft_02_02_s,Value,PC_FT,fully open to 100%
+pc_lo_02_03_c,Condition,PC_LO,na
+pc_ft_02_03_c,Value,PC_FT,restored
+pc_lo_02_03_t,Action (if cond'==True),PC_LO,na
+pc_in_02_03_t,End of Procedure,PC_IN,na
+pc_lo_02_03_f,Action (if cond'==False),PC_LO,na
+pc_lo_03_01_c,Condition,PC_LO,na
+ct_02,Feedwater Pump Switch,CT,na
+pc_ft_03_01_c,Value,PC_FT,off
+pc_lo_03_01_t,Action (if cond'==True),PC_LO,na
+pc_ft_03_01_t,Value,PC_FT,on
+pc_lo_03_02_c,Condition,PC_LO,na
+pc_ft_03_02_c,Value,PC_FT,restored
+pc_lo_03_02_t,Action (if cond'==True),PC_LO,na
+pc_in_03_02_t,End of Procedure,PC_IN,na
+pc_lo_03_02_f,Action (if cond'==False),PC_LO,na
+ct_03,Turbine Bypass Control Valve,CT,na
+pc_ft_04_01_s,Value,PC_FT,10%
+ic_12,Reactor Core Temperature,IC,na
+pc_ft_04_02_s,Value,PC_FT,decreasing
+ct_04,Trip Turbine Button,CT,na
+ct_05,Turbine Speed Control Valve,CT,na
+pc_ft_05_02_s,Value,PC_FT,closed(0%)
+ct_06,Turbine Load Control Valve,CT,na
+pc_ft_05_03_s,Value,PC_FT,closed(0%)
+ct_07,Trip Reactor Button,CT,na
+ic_02,ALL RODS DOWN annunciator,IC,na
+pc_ft_06_02_s,Value,PC_FT,illuminated
+ic_13,Reactor Reactivity,IC,na
+pc_ft_06_03_s,Value,PC_FT,0%
+ct_08,Activate Safety Injection Button,CT,na
+ic_03,SAFETY INJECTION ENGAGED annunciator,IC,na
+pc_ft_07_02_s,Value,PC_FT,illuminated
+pc_ft_08_01_s,Value,PC_FT,decreasing
+pc_lo_08_02_c,Condition,PC_LO,na
+pc_ft_08_02_c,Value,PC_FT,392F degree
+pc_lo_08_02_t,Action (if cond'==True),PC_LO,na
+ct_09,Power Operated Relief Valve Isolation Valve,CT,na
+pc_ft_08_02_t,Value,PC_FT,closed
+pc_lo_08_03_c,Condition,PC_LO,na
+pc_ft_08_03_c,Value,PC_FT,392F degree
+pc_lo_08_03_t,Action (if cond'==True),PC_LO,na
+pc_lo_08_03_f,Action (if cond'==False),PC_LO,na
+pc_in_08_03_f,End of Procedure,PC_IN,na
+ct_10,Recirculation Coolant Pump Switch,CT,na
+pc_ft_09_01_s,Value,PC_FT,off
+pc_lo_10_01_c,Condition,PC_LO,na
+pc_ft_10_01_c,Value,PC_FT,250F degree
+pc_lo_10_01_t,Action (if cond'==True),PC_LO,na
+pc_ft_10_01_t,Value,PC_FT,100%
+pc_ft_10_02_s,Value,PC_FT,250F degree
+pc_ft_10_03_s,Value,PC_FT,0%
+pc_in_10_04_s,End of Procedure,PC_IN,na
+,,,
+,,,
+,,,
+,,,
+,,,
+,,,
+,,,
+,,,
+,,,
+,,,
