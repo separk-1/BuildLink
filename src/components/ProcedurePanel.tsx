@@ -8,6 +8,7 @@ interface CustomNode extends NodeObject {
   id: string;
   name: string;
   type: string;
+  value?: string;
   val?: number; // for particle size logic if needed
 }
 
@@ -101,6 +102,7 @@ export const ProcedurePanel = () => {
       id: e.entity_id,
       name: e.entity_name,
       type: e.entity_type,
+      value: e.entity_value,
       val: 1
     }));
 
@@ -230,7 +232,12 @@ export const ProcedurePanel = () => {
           nodeCanvasObject={paintNode}
           linkCanvasObject={paintLink}
           linkCanvasObjectMode={() => 'replace'}
-          nodeLabel="name"
+          nodeLabel={(node: CustomNode) => {
+              if (node.value && node.value.toLowerCase() !== 'na') {
+                  return node.value;
+              }
+              return node.name;
+          }}
           // Physics Configuration to reduce clutter
           d3VelocityDecay={0.2}
           cooldownTicks={100}
