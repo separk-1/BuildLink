@@ -180,7 +180,7 @@ export const ProcedurePanel = () => {
       ctx.beginPath();
       ctx.moveTo(start.x!, start.y!);
       ctx.lineTo(end.x!, end.y!);
-      ctx.strokeStyle = '#475569';
+      ctx.strokeStyle = link.label === 'next' ? '#3b82f6' : '#475569';
       ctx.lineWidth = 1 / globalScale;
       ctx.stroke();
 
