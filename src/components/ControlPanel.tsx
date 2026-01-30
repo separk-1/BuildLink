@@ -27,9 +27,9 @@ export const ControlPanel = () => {
             <TripButton label="TRIP REACTOR" onClick={s.toggleTripReactor} tripped={s.trip_reactor} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                 <ToggleButton label="Safety Injection" active={s.activate_si} onClick={s.toggleSi} />
-                 <ToggleButton label="Reactor Coolant Pump" active={s.rcp} onClick={s.toggleRcp} />
-                 <ToggleButton label="Power Operated Relief Valve" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
+                 <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
+                 <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
+                 <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
         </ControlColumn>
 
@@ -37,8 +37,8 @@ export const ControlPanel = () => {
         <ControlColumn label="STEAM GENERATOR">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <ToggleButton label="Feedwater Pump" active={s.fw_pump} onClick={s.toggleFwPump} />
-                <ToggleButton label="Feedwater Isolation Valve" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
-                <ToggleButton label="Main Steam Isolation Valve" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
+                <ToggleButton label="FWIV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
+                <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }}></div>
@@ -54,7 +54,7 @@ export const ControlPanel = () => {
                 </button>
             </div>
 
-            <Slider label="Feedwater Control Valve" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
+            <Slider label="FWCV" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
 
         </ControlColumn>
 
@@ -62,9 +62,9 @@ export const ControlPanel = () => {
         <ControlColumn label="TURBINE">
              <TripButton label="TRIP TURBINE" onClick={s.toggleTripTurbine} tripped={s.trip_turbine} />
 
-             <Slider label="Turbine Speed Control Valve" value={s.turbine_speed_cv} onChange={s.setTurbineSpeedCv} />
-             <Slider label="Turbine Load Control Valve" value={s.turbine_load_cv} onChange={s.setTurbineLoadCv} />
-             <Slider label="Turbine Bypass Control Valve" value={s.turbine_bypass_cv} onChange={s.setTurbineBypassCv} />
+             <Slider label="TSCV" value={s.turbine_speed_cv} onChange={s.setTurbineSpeedCv} />
+             <Slider label="TLCV" value={s.turbine_load_cv} onChange={s.setTurbineLoadCv} />
+             <Slider label="TBCV" value={s.turbine_bypass_cv} onChange={s.setTurbineBypassCv} />
         </ControlColumn>
 
       </div>

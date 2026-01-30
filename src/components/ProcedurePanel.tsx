@@ -260,7 +260,7 @@ export const ProcedurePanel = () => {
 
       let strokeStyle = '#475569';
       let lineWidth = 1 / globalScale;
-      let opacity = 0.1; // Default dim
+      let opacity = 0.3; // Default visible (was 0.1)
 
       if (isRelevant) {
           opacity = 1;
