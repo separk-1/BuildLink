@@ -96,7 +96,7 @@ const SchematicView = ({ state }: { state: any }) => {
           COMPONENTS (Blocks)
          -------------------------------------------------------------------------- */}
 
-      {/* Reactor */}
+      {/* Reactor: 50, 180, 140w, 230h. Center X = 120 */}
       <rect x="50" y="180" width="140" height="230" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
       <text x="120" y="300" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Reactor</text>
 
@@ -132,11 +132,13 @@ const SchematicView = ({ state }: { state: any }) => {
       {/* Header Vertical Distribution */}
       <path d="M 480 80 L 480 300" fill="none" stroke="#f8fafc" strokeWidth="6" />
 
-      {/* Speed CV Branch */}
+      {/* Speed CV Branch (TSCV) - y=100 */}
       <path d="M 480 100 L 650 100" fill="none" stroke="#f8fafc" strokeWidth="4" />
-      {/* Load CV Branch */}
-      <path d="M 480 160 L 650 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
-      {/* Bypass CV Branch -> Condenser */}
+
+      {/* Load CV Branch (TLCV) - Moved to y=200 for uniform spacing */}
+      <path d="M 480 200 L 650 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
+      {/* Bypass CV Branch (TBCV) - y=300 */}
       <path d="M 480 300 L 650 300" fill="none" stroke="#f8fafc" strokeWidth="4" />
 
 
@@ -161,14 +163,16 @@ const SchematicView = ({ state }: { state: any }) => {
       {/* Main Steam Isolation Valve (MSIV) - Vertically above SG */}
       <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="(Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
 
-      {/* Steam Pressure - Right of MSIV */}
+      {/* Steam Pressure - Right of MSIV, between MSIV and TSCV/Header */}
       <DigitalGauge x={430} y={120} label="steam pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} fullName="(Steam Pressure)" />
 
-      {/* Turbine Speed Control Valve */}
+      {/* Turbine Speed Control Valve - y=100 */}
       <Valve x={550} y={100} open={true} label="TSCV" fullName="(Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
-      {/* Turbine Load Control Valve */}
-      <Valve x={550} y={160} open={true} label="TLCV" fullName="(Turbine Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
-      {/* Turbine Bypass Control Valve */}
+
+      {/* Turbine Load Control Valve - Moved to y=200 */}
+      <Valve x={550} y={200} open={true} label="TLCV" fullName="(Turbine Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+
+      {/* Turbine Bypass Control Valve - y=300 */}
       <Valve x={550} y={300} open={false} label="TBCV" fullName="(Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Feedwater Pump */}
@@ -189,10 +193,11 @@ const SchematicView = ({ state }: { state: any }) => {
           DIGITAL DISPLAYS (Instruments)
          -------------------------------------------------------------------------- */}
 
-      {/* Reactivity (Top Left) */}
-      <DigitalGauge x={50} y={50} label="reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" fullName="(Reactivity)" />
-      {/* Core Temp (Top Left) */}
-      <DigitalGauge x={180} y={50} label="core temp" value={fmt(state.display_core_t, 1)} unit="°C" width={100} fullName="(Core Temperature)" />
+      {/* Reactivity (Top Left) - Moved Above Reactor */}
+      <DigitalGauge x={50} y={120} label="reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" fullName="(Reactivity)" />
+
+      {/* Core Temp (Top Left) - Moved Above Reactor */}
+      <DigitalGauge x={160} y={120} label="core temp" value={fmt(state.display_core_t, 1)} unit="°C" width={100} fullName="(Core Temperature)" />
 
       {/* Turbine Speed (Top Right) */}
       <DigitalGauge x={700} y={20} label="turbine spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} fullName="(Turbine Speed)" />
@@ -204,12 +209,20 @@ const SchematicView = ({ state }: { state: any }) => {
           fullName="(Steam Generator Level)"
       />
 
-      {/* Primary Flow (Below Reactor) */}
-      <DigitalGauge x={50} y={440} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={100} fullName="(Primary Flow)" />
+      {/* Primary Flow (Between Reactor and RCP) */}
+      {/* Reactor Right X=190. RCP X=245. Midpoint ~217. */}
+      {/* Let's center it at 217. Width 80 (compact). */}
+      {/* y=340 to be above the pipe slightly but clear. */}
+      <DigitalGauge x={180} y={330} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} fullName="(Primary Flow)" />
 
-      {/* Feedwater Flow (Near FW Line) */}
-      <DigitalGauge x={230} y={480} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
-          warn={state.fw_low_flow} width={100} fullName="(Feedwater Flow)"
+      {/* Feedwater Flow (Between SG and FWCV) */}
+      {/* SG Bottom y=410. FWCV y=450. */}
+      {/* The pipe is vertical at x=360. */}
+      {/* Let's place it to the Right of the pipe, vertically centered between SG and FWCV? */}
+      {/* 410 to 450 is 40px space. */}
+      {/* Let's place it at x=380, y=415? Overlaps pipe? No, pipe is at 360. */}
+      <DigitalGauge x={250} y={430} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+          warn={state.fw_low_flow} width={90} compact={true} fullName="(Feedwater Flow)"
       />
 
     </svg>

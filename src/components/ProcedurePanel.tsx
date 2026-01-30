@@ -32,6 +32,23 @@ const parseCSV = (csv: string) => {
   });
 };
 
+const parseProcedureCSV = (csv: string) => {
+    const lines = csv.trim().split('\n');
+    const headers = lines[0].split(',');
+    // Assuming headers include 'step_id' and 'description'
+    const map = new Map<string, string>();
+    lines.slice(1).forEach(line => {
+        const values = line.split(',');
+        const row: any = {};
+        headers.forEach((h, i) => row[h.trim()] = values[i]?.trim());
+        if (row.step_id && row.description) {
+            map.set(row.step_id, row.description);
+        }
+    });
+    return map;
+};
+
+
 // Color mapping based on node type
 const getNodeColor = (type: string) => {
   switch (type) {
@@ -46,12 +63,13 @@ const getNodeColor = (type: string) => {
 export const ProcedurePanel = () => {
   const fgRef = useRef<any>(undefined);
   const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
+  const [procedureMap, setProcedureMap] = useState<Map<string, string>>(new Map());
   const [autoFocus, setAutoFocus] = useState(true);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { activeStepId, setActiveStepId, stepHistory, goToPreviousStep } = useSimulationStore();
-  const { entityCsv, relationshipCsv, loading } = useGraphData();
+  const { entityCsv, relationshipCsv, procedureCsv, loading } = useGraphData();
 
   // Resize Observer to handle panel resizing
   useEffect(() => {
@@ -77,6 +95,11 @@ export const ProcedurePanel = () => {
     const entities = parseCSV(entityCsv);
     const relationships = parseCSV(relationshipCsv);
 
+    // Parse Procedure Descriptions
+    if (procedureCsv) {
+        setProcedureMap(parseProcedureCSV(procedureCsv));
+    }
+
     const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
       name: e.entity_name,
@@ -96,7 +119,7 @@ export const ProcedurePanel = () => {
     });
 
     setGraphData({ nodes, links });
-  }, [entityCsv, relationshipCsv, loading]);
+  }, [entityCsv, relationshipCsv, procedureCsv, loading]);
 
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {
@@ -104,11 +127,24 @@ export const ProcedurePanel = () => {
       if (!activeStepId) return set;
 
       set.add(activeStepId);
-      // Removed edge and neighbor highlighting logic as per user request.
-      // "Only the current active step node should be highlighted. Edges and subsequent steps should remain in the default style."
+
+      // Add related nodes (neighbors) to the set so they are NOT faded
+      // We look for outgoing edges from activeStepId
+      if (graphData.links.length > 0) {
+          graphData.links.forEach(l => {
+              const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+              const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
+
+              if (sId === activeStepId) {
+                  set.add(tId as string);
+              }
+              // Optional: incoming edges? Usually procedures flow forward, but we might want context.
+              // For now, let's just do outgoing (dependencies/logic)
+          });
+      }
 
       return set;
-  }, [activeStepId]);
+  }, [activeStepId, graphData]);
 
 
   // Analyze Current Step Options (Memoized)
@@ -182,15 +218,14 @@ export const ProcedurePanel = () => {
 
     // Small delay to allow graph to settle
     const timer = setTimeout(() => {
-        // If single node, use centerAt + specific zoom
-        if (highlightSet.size === 1) {
-            const node = relevantNodes[0];
-            if (node.x !== undefined && node.y !== undefined) {
-                fgRef.current.centerAt(node.x, node.y, 1000);
-                fgRef.current.zoom(3, 2000); // Zoom level 3 is moderate (default 1)
-            }
+        // If single node (or just step+neighbors), focus on step
+        const stepNode = graphData.nodes.find(n => n.id === activeStepId);
+
+        if (stepNode && stepNode.x !== undefined && stepNode.y !== undefined) {
+             fgRef.current.centerAt(stepNode.x, stepNode.y, 1000);
+             fgRef.current.zoom(3, 2000);
         } else {
-             // Standard fit for multiple nodes (fallback)
+             // Fallback
              fgRef.current.zoomToFit(1000, 100, (node: CustomNode) => highlightSet.has(node.id));
         }
     }, 200);
@@ -201,11 +236,13 @@ export const ProcedurePanel = () => {
 
   const paintNode = useCallback((node: CustomNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isActive = node.id === activeStepId;
-    const isHighlighted = highlightSet.has(node.id);
+    const isHighlighted = highlightSet.has(node.id); // Active OR Neighbor
     const label = node.name;
     const fontSize = 12 / globalScale;
 
     // Opacity Logic
+    // If set has items, fade others.
+    // However, if we are in "Active Step" mode, we want Active AND Neighbors to be opaque.
     const opacity = isHighlighted ? 1 : 0.2;
     ctx.globalAlpha = opacity;
 
@@ -222,7 +259,7 @@ export const ProcedurePanel = () => {
       ctx.fillStyle = '#fff';
       ctx.fill();
     } else {
-        // Standard or Highlighted Target
+        // Standard or Highlighted Neighbor
         ctx.beginPath();
         ctx.arc(node.x!, node.y!, 5, 0, 2 * Math.PI, false);
         ctx.fillStyle = getNodeColor(node.type);
@@ -340,6 +377,10 @@ export const ProcedurePanel = () => {
           linkCanvasObject={paintLink}
           linkCanvasObjectMode={() => 'replace'}
           nodeLabel={(node: CustomNode) => {
+              // Priority: Procedure Description -> Value -> Name
+              if (node.type === 'PC_ST' && procedureMap.has(node.id)) {
+                  return procedureMap.get(node.id) || node.name;
+              }
               if (node.value && node.value.toLowerCase() !== 'na') {
                   return node.value;
               }
@@ -351,16 +392,10 @@ export const ProcedurePanel = () => {
           onEngineStop={() => {
               // Initial focus
               if (autoFocus && activeStepId && highlightSet.size > 0 && fgRef.current) {
-                // Same logic as useEffect
-                 if (highlightSet.size === 1) {
-                     // Note: We need to find the node object from graphData.nodes again
-                     const node = graphData.nodes.find(n => n.id === activeStepId);
-                     if (node && node.x !== undefined) {
-                         fgRef.current.centerAt(node.x, node.y, 1000);
-                         fgRef.current.zoom(3, 2000);
-                     }
-                 } else {
-                     fgRef.current.zoomToFit(1000, 100, (n: CustomNode) => highlightSet.has(n.id));
+                 const stepNode = graphData.nodes.find(n => n.id === activeStepId);
+                 if (stepNode && stepNode.x !== undefined) {
+                     fgRef.current.centerAt(stepNode.x, stepNode.y, 1000);
+                     fgRef.current.zoom(3, 2000);
                  }
               }
           }}

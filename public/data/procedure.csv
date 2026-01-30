@@ -1,0 +1,6 @@
+step_id,description
+pc_st_01_01,Identify Loss of Feedwater Event
+pc_st_01_02,Check Reactor Trip Status
+pc_st_01_03,Verify Turbine Trip
+pc_st_01_04,Check AC Power Availability
+pc_st_01_05,Verify SI Actuation Status

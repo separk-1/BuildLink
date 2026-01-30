@@ -34,10 +34,40 @@ export const ControlPanel = () => {
   return (
     <>
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>CONTROL PANEL</span>
-        <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--color-info)' }}>
-            {formatTime(s.time)}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>CONTROL PANEL</span>
+
+            {/* Scenario Selector (Only when Training Mode is OFF) */}
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    style={{ width: '120px', fontSize: '0.7rem' }}
+                    value={s.scenarioPreset}
+                    onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">SCENARIO A</option>
+                    <option value="pump">SCENARIO B</option>
+                    <option value="hard">SCENARIO C</option>
+                </select>
+            )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+             {/* Training Mode Toggle */}
+             <button
+                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                onClick={s.toggleTrainingMode}
+                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                title="Training Mode (Randomness)"
+             >
+                TRN: {s.trainingMode ? 'ON' : 'OFF'}
+             </button>
+
+            <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--color-info)' }}>
+                {formatTime(s.time)}
+            </span>
+        </div>
       </div>
 
       <div className="panel-content" style={{ gap: '12px' }}>
@@ -61,17 +91,16 @@ export const ControlPanel = () => {
                 <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
 
-            <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }}></div>
+            <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
 
-            <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center'}}>
-                <span style={{fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)'}}>FW CONTROL</span>
-                <button
-                    className={`dcs-btn ${s.fwcv_mode ? 'active-green' : ''}`}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+                 <ToggleButton
+                    label="FW CONTROL"
+                    active={s.fwcv_mode}
                     onClick={s.toggleFwcvMode}
-                    style={{ padding: '2px 8px', fontSize: '0.65rem' }}
-                >
-                    {s.fwcv_mode ? 'AUTO' : 'MANUAL'}
-                </button>
+                    onLabel="AUTO"
+                    offLabel="MANUAL"
+                 />
             </div>
 
             <Slider label="FWCV" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
@@ -98,31 +127,6 @@ export const ControlPanel = () => {
           alignItems: 'center',
           justifyContent: 'flex-end'
       }}>
-            {/* Scenario Selector (Only when Training Mode is OFF) */}
-            {!s.trainingMode && (
-                <select
-                    className="dcs-select"
-                    style={{ width: '120px', fontSize: '0.7rem' }}
-                    value={s.scenarioPreset}
-                    onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
-                    title="Scenario Preset"
-                >
-                    <option value="cv">SCENARIO A</option>
-                    <option value="pump">SCENARIO B</option>
-                    <option value="hard">SCENARIO C</option>
-                </select>
-            )}
-
-             {/* Training Mode Toggle */}
-             <button
-                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
-                onClick={s.toggleTrainingMode}
-                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
-                title="Training Mode (Randomness)"
-             >
-                TRN: {s.trainingMode ? 'ON' : 'OFF'}
-             </button>
-
             <button
                 className="dcs-btn"
                 onClick={s.resetSimulation}
