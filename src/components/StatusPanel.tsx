@@ -93,117 +93,112 @@ const SchematicView = ({ state }: { state: any }) => {
     <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ background: '#020617' }}>
 
       {/* --------------------------------------------------------------------------
+          COMPONENTS (Blocks)
+         -------------------------------------------------------------------------- */}
+
+      {/* Reactor */}
+      <rect x="50" y="120" width="120" height="260" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="110" y="250" textAnchor="middle" fill={cBorder} fontSize="18" fontWeight="bold">REACTOR</text>
+
+      {/* Steam Generator (SG) */}
+      <rect x="300" y="120" width="100" height="260" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="350" y="250" textAnchor="middle" fill={cBorder} fontSize="18" fontWeight="bold">SG</text>
+
+      {/* Turbine Block */}
+      <rect x="600" y="80" width="150" height="180" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="675" y="170" textAnchor="middle" fill={cBorder} fontSize="18" fontWeight="bold">TURBINE</text>
+
+      {/* Condenser Block (Attached below Turbine) */}
+      <rect x="600" y="260" width="150" height="100" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="675" y="310" textAnchor="middle" fill={cBorder} fontSize="16">CONDENSER</text>
+
+
+      {/* --------------------------------------------------------------------------
           PIPING LAYOUT
          -------------------------------------------------------------------------- */}
 
-      {/* Primary Loop: Reactor -> SG */}
-      <path d="M 200 200 L 350 200 L 350 180" fill="none" stroke={cPipeHot} strokeWidth="8" />
-
-      {/* Primary Loop: SG -> Pump -> Reactor */}
-      <path d="M 350 350 L 350 380 L 200 380" fill="none" stroke={cPipeCold} strokeWidth="8" />
-
-      {/* Steam Line: SG -> MSIV -> Header */}
-      <path d="M 400 150 L 400 100 L 550 100" fill="none" stroke="#f8fafc" strokeWidth="6" />
-
-      {/* Header split to Turbine Valves */}
-      <path d="M 550 100 L 550 240" fill="none" stroke="#f8fafc" strokeWidth="4" /> {/* Main Vertical Header */}
-
-      {/* Speed CV -> Turbine */}
-      <path d="M 550 160 L 620 160 L 650 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
-
-      {/* Load CV -> Turbine */}
-      <path d="M 550 200 L 620 200 L 650 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
-
-      {/* Bypass -> Condenser */}
-      <path d="M 550 240 L 620 240 L 680 240 L 680 350" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      {/* Primary Loop: Reactor <-> SG */}
+      {/* Hot Leg (Top) */}
+      <path d="M 170 180 L 300 180" fill="none" stroke={cPipeHot} strokeWidth="8" />
+      {/* Cold Leg (Bottom) */}
+      <path d="M 300 320 L 170 320" fill="none" stroke={cPipeCold} strokeWidth="8" />
 
 
-      {/* Feedwater Line: Condenser -> Pump -> Valves -> SG */}
-      {/* Condenser Out */}
-      <path d="M 700 400 L 700 430 L 600 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
-      {/* Pump to Valves (shifted right) */}
-      <path d="M 560 430 L 550 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
-      {/* Up to SG (shifted right) */}
-      <path d="M 500 430 L 420 430 L 420 300" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Steam Lines */}
+      {/* SG Top -> Header */}
+      <path d="M 350 120 L 350 60 L 520 60 L 520 300" fill="none" stroke="#f8fafc" strokeWidth="6" />
+
+      {/* Branches to Turbine/Condenser */}
+      {/* Speed CV Line */}
+      <path d="M 520 120 L 600 120" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      {/* Load CV Line */}
+      <path d="M 520 180 L 600 180" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      {/* Bypass CV Line -> Condenser */}
+      <path d="M 520 290 L 600 290" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
+
+      {/* Feedwater Return */}
+      {/* Condenser Bottom -> Pump */}
+      <path d="M 675 360 L 675 420 L 550 420" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Pump -> Valves -> SG Bottom */}
+      <path d="M 550 420 L 350 420 L 350 380" fill="none" stroke={cPipeCold} strokeWidth="6" />
 
 
       {/* --------------------------------------------------------------------------
-          COMPONENTS
+          VALVES & PUMPS
          -------------------------------------------------------------------------- */}
 
-      {/* Reactor Container */}
-      <rect x="50" y="100" width="150" height="300" rx="20" fill={cComponent} stroke={cBorder} strokeWidth="4" />
-      <text x="125" y="250" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Reactor</text>
+      {/* RCP (On Cold Leg) */}
+      <circle cx="235" cy="320" r="15" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="235" y="355" textAnchor="middle" fill="#94a3b8" fontSize="10">RCP</text>
 
-      {/* Steam Generator */}
-      <rect x="320" y="150" width="100" height="200" rx="15" fill={cComponent} stroke={cBorder} strokeWidth="3" />
-      <text x="370" y="250" textAnchor="middle" fill={cBorder} fontSize="16" fontWeight="bold">SG</text>
-      {/* SG Internal Coils (Visual) */}
-      <path d="M 350 200 Q 330 250 350 300 Q 370 250 350 200" fill="none" stroke={cPipeHot} strokeWidth="4" opacity="0.5" />
+      {/* MSIV (On Steam Exit) */}
+      <Valve x={350} y={90} open={state.msiv} label="MSIV" vertical={true} />
 
-      {/* Turbine */}
-      <rect x="650" y="120" width="120" height="200" rx="10" fill={cComponent} stroke={cBorder} strokeWidth="3" />
-      <text x="710" y="220" textAnchor="middle" fill={cBorder} fontSize="18" fontWeight="bold">Turbine</text>
-
-      {/* Condenser */}
-      <path d="M 650 350 L 770 350 Q 770 400 710 420 Q 650 400 650 350" fill={cComponent} stroke={cBorder} strokeWidth="3" />
-      <text x="710" y="380" textAnchor="middle" fill={cBorder} fontSize="14">Condenser</text>
-
-
-      {/* PUMPS */}
-      {/* RCP (Reactor Coolant Pump) */}
-      <circle cx="300" cy="380" r="15" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="300" y="415" textAnchor="middle" fill="#94a3b8" fontSize="10">RCP</text>
+      {/* Speed CV */}
+      <Valve x={560} y={120} open={true} label="Speed CV" scale={0.8} vertical={false} />
+      {/* Load CV */}
+      <Valve x={560} y={180} open={true} label="Load CV" scale={0.8} vertical={false} />
+      {/* Bypass CV */}
+      <Valve x={560} y={290} open={false} label="Bypass" scale={0.8} vertical={false} />
 
       {/* FW Pump */}
-      <circle cx="580" cy="430" r="15" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="580" y="465" textAnchor="middle" fill="#94a3b8" fontSize="10">FW PUMP</text>
+      <circle cx="500" cy="420" r="15" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="500" y="455" textAnchor="middle" fill="#94a3b8" fontSize="10">FW PUMP</text>
 
-
-      {/* VALVES */}
-      {/* MSIV */}
-      <Valve x={400} y={125} open={state.msiv} label="MSIV" vertical={true} />
-
-      {/* Turbine Valves (Visual only, mapped to CVs?) */}
-      <Valve x={620} y={160} open={true} label="Speed CV" scale={0.7} />
-      <Valve x={620} y={200} open={true} label="Load CV" scale={0.7} />
-      <Valve x={620} y={240} open={false} label="Bypass" scale={0.7} vertical={false} />
-
-      {/* FW Isolation (Shifted Right) */}
-      <Valve x={530} y={430} open={state.fwiv} label="FW IV" vertical={false} />
-
-      {/* FW Control (Shifted Right) */}
-      <Valve x={480} y={430} open={state.fwcv_degree > 0} label={`FW CV ${(state.fwcv_degree*100).toFixed(0)}%`} vertical={false} type="control" />
+      {/* FW Valves */}
+      <Valve x={450} y={420} open={state.fwiv} label="FW IV" vertical={false} />
+      <Valve x={400} y={420} open={state.fwcv_degree > 0} label="FW CV" vertical={false} type="control" />
 
 
       {/* --------------------------------------------------------------------------
-          DISPLAYS (Green Digital Style)
+          DIGITAL DISPLAYS
          -------------------------------------------------------------------------- */}
 
-      {/* 1. Reactivity */}
-      <DigitalGauge x={40} y={40} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" />
+      {/* Reactivity (Top Left) */}
+      <DigitalGauge x={50} y={40} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" />
+      {/* Core Temp (Top Left) */}
+      <DigitalGauge x={160} y={40} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" />
 
-      {/* 2. Core Temp */}
-      <DigitalGauge x={150} y={40} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" />
+      {/* Steam Press (Top Center) */}
+      <DigitalGauge x={400} y={20} label="Steam Press" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" />
 
-      {/* 3. Primary Flow (Near RCP Loop) */}
-      <DigitalGauge x={180} y={390} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" />
+      {/* Turbine Speed (Top Right) */}
+      <DigitalGauge x={625} y={40} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" />
 
-      {/* 4. SG Level (On SG) */}
-      <DigitalGauge x={320} y={200} label="Steam Gen Lvl" value={fmt(state.display_sg_level, 1)} unit="%"
+      {/* SG Level (On SG) */}
+      <DigitalGauge x={250} y={200} label="Steam Gen Lvl" value={fmt(state.display_sg_level, 1)} unit="%"
           warn={state.sg_low_level || state.sg_high_level}
+          compact={true}
       />
 
-      {/* 5. Steam Pressure (Top Line) */}
-      <DigitalGauge x={460} y={40} label="Steam Press" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" />
+      {/* Primary Flow (Below Reactor) */}
+      <DigitalGauge x={50} y={400} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" />
 
-      {/* 6. FW Flow (Bottom Line - Shifted Right) */}
-      <DigitalGauge x={370} y={390} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+      {/* FW Flow (Below FW Line) */}
+      <DigitalGauge x={350} y={440} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
           warn={state.fw_low_flow}
       />
-
-      {/* 7. Turbine Speed */}
-      <DigitalGauge x={650} y={40} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" />
 
     </svg>
   );
@@ -213,17 +208,18 @@ const SchematicView = ({ state }: { state: any }) => {
 // SVG Helpers
 // ----------------------------------------------------------------------------
 
-const DigitalGauge = ({ x, y, label, value, unit, warn = false }: { x: number, y: number, label: string, value: string, unit: string, warn?: boolean }) => {
+const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false }: any) => {
+    const w = compact ? 80 : 100;
     return (
         <g transform={`translate(${x}, ${y})`}>
             {/* Label Background */}
-            <rect x="0" y="0" width="100" height="20" fill="#333" />
-            <text x="50" y="14" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="bold" fontFamily="sans-serif">{label}</text>
+            <rect x="0" y="0" width={w} height="20" fill="#333" />
+            <text x={w/2} y="14" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{label}</text>
 
             {/* Value Background */}
-            <rect x="0" y="20" width="100" height="30" fill="#000" stroke={warn ? "#ef4444" : "#22c55e"} strokeWidth={warn ? 2 : 0} />
-            <text x="50" y="42" textAnchor="middle" fill={warn ? "#ef4444" : "#22c55e"} fontSize="18" fontWeight="bold" fontFamily="monospace">
-                {value} <tspan fontSize="10" fill="#666">{unit}</tspan>
+            <rect x="0" y="20" width={w} height="30" fill="#000" stroke={warn ? "#ef4444" : "#22c55e"} strokeWidth={warn ? 2 : 0} />
+            <text x={w/2} y="42" textAnchor="middle" fill={warn ? "#ef4444" : "#22c55e"} fontSize="16" fontWeight="bold" fontFamily="monospace">
+                {value} <tspan fontSize="9" fill="#666">{unit}</tspan>
             </text>
         </g>
     );
