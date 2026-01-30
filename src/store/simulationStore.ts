@@ -12,6 +12,7 @@ interface SimulationState {
   scenarioPreset: ScenarioPreset;
   trainingMode: boolean; // false = Deterministic, true = Stochastic
   time: number; // Simulation time in seconds
+  tick_count: number;
 
   // --- System State (Float/Int) ---
   last_log_time: number;
@@ -132,6 +133,7 @@ const addNoise = (val: number, magnitude: number, trainingMode: boolean) => {
 
 const INITIAL_STATE = {
   time: 0,
+  tick_count: 0,
   last_log_time: 0,
 
   // Reactor
@@ -302,7 +304,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const s = get();
     let updates: any = {};
     const new_time = s.time + DT;
+    const new_tick_count = s.tick_count + 1;
+
     updates.time = new_time;
+    updates.tick_count = new_tick_count;
+
+    const shouldUpdateDisplay = !s.trainingMode || (new_tick_count % 10 === 0);
 
     // --- Scenario Trigger Logic (T=5s) ---
     // If not yet active, and time > 5s, trigger it
@@ -404,28 +411,24 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates = {
         ...updates,
         reactivity: new_reactivity,
-        display_reactivity: addNoise(new_reactivity, 0.5, s.trainingMode),
-
         pri_flow: new_pri_flow,
-        display_pri_flow: addNoise(new_pri_flow, 500, s.trainingMode),
-
         core_t: new_core_t,
-        display_core_t: addNoise(new_core_t, 1.0, s.trainingMode),
-
         fw_flow: new_fw_flow,
-        display_fw_flow: addNoise(new_fw_flow, 20, s.trainingMode),
-
         fwcv_degree: new_fwcv_degree,
         fwcv_continuous: new_fwcv_continuous,
-
         sg_level: new_sg_level,
-        display_sg_level: addNoise(new_sg_level, 0.5, s.trainingMode),
-
         steam_press: new_press,
-        display_steam_press: addNoise(new_press, 0.5, s.trainingMode),
-
         turbine_rpm: new_rpm,
     };
+
+    if (shouldUpdateDisplay) {
+        updates.display_reactivity = addNoise(new_reactivity, 0.5, s.trainingMode);
+        updates.display_pri_flow = addNoise(new_pri_flow, 500, s.trainingMode);
+        updates.display_core_t = addNoise(new_core_t, 1.0, s.trainingMode);
+        updates.display_fw_flow = addNoise(new_fw_flow, 20, s.trainingMode);
+        updates.display_sg_level = addNoise(new_sg_level, 0.5, s.trainingMode);
+        updates.display_steam_press = addNoise(new_press, 0.5, s.trainingMode);
+    }
 
     // --- Annunciator Logic (Uses True Values) ---
 

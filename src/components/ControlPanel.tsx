@@ -20,27 +20,6 @@ export const ControlPanel = () => {
         </span>
       </div>
 
-      {/* Scenario Selector - Top Position */}
-      {!s.trainingMode && (
-        <div style={{ padding: '0 12px 8px 12px' }}>
-            <select
-                className="dcs-select"
-                style={{ width: '100%' }}
-                value={s.scenarioPreset}
-                onChange={(e) => {
-                    if (window.confirm("Changing scenario will reset the simulation. Continue?")) {
-                        s.setScenarioPreset(e.target.value as ScenarioPreset);
-                    }
-                }}
-                title="Scenario Preset"
-            >
-                <option value="cv">Scenario A: CV Issue</option>
-                <option value="pump">Scenario B: Pump Issue</option>
-                <option value="hard">Scenario C: Hard Fail</option>
-            </select>
-        </div>
-      )}
-
       <div className="panel-content" style={{ gap: '12px' }}>
 
         {/* Reactor Column */}
@@ -98,6 +77,24 @@ export const ControlPanel = () => {
           alignItems: 'center',
           justifyContent: 'flex-end'
       }}>
+            {/* Scenario Selector (Only when Training Mode is OFF) */}
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    style={{ flex: 1, minWidth: 0 }}
+                    value={s.scenarioPreset}
+                    onChange={(e) => {
+                        // User requested to remove the confirmation dialog
+                        s.setScenarioPreset(e.target.value as ScenarioPreset);
+                    }}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">SCENARIO A</option>
+                    <option value="pump">SCENARIO B</option>
+                    <option value="hard">SCENARIO C</option>
+                </select>
+            )}
+
              {/* Training Mode Toggle */}
              <button
                 className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}

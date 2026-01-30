@@ -307,7 +307,7 @@ export const ProcedurePanel = () => {
       if (link.label && (isRelevant || globalScale > 0.8)) {
           const midX = (start.x! + end.x!) / 2;
           const midY = (start.y! + end.y!) / 2;
-          const fontSize = 10 / globalScale;
+          const fontSize = 14 / globalScale; // Increased font size
 
           if (globalScale > 0.5) {
               ctx.font = `${fontSize}px Sans-Serif`;
@@ -323,8 +323,22 @@ export const ProcedurePanel = () => {
 
   return (
     <>
-      <div className="panel-title">
-        <span>PROCEDURES / KG</span>
+      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span>PROCEDURES / KG</span>
+            {activeStepId && (
+                 <span style={{
+                     fontSize: '0.7rem',
+                     background: 'rgba(255, 255, 255, 0.1)',
+                     padding: '2px 6px',
+                     borderRadius: '4px',
+                     border: '1px solid rgba(255, 255, 255, 0.2)',
+                     color: '#eab308'
+                 }}>
+                     STEP: {activeStepId}
+                 </span>
+            )}
+        </div>
         <div style={{ display: 'flex', gap: '8px' }}>
             <button
                 className="dcs-btn"
