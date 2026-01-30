@@ -278,8 +278,6 @@ export const ProcedurePanel = () => {
       // But for tree-like procedures, it's probably fine.
       // Better: Check if one of them is the Active Step, OR if they share a class_num with the active step's outgoing link.
 
-      const isDirect = sourceId === activeStepId && highlightSet.has(targetId);
-
       // Check class_num relevance
       // We need to know the class_num of the *active outgoing link*
       // This is expensive to calculate inside paintLink every frame.

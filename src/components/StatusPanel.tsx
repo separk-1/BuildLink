@@ -4,7 +4,7 @@ import { useSimulationStore } from '../store/simulationStore';
 export const StatusPanel = () => {
   const state = useSimulationStore();
 
-  // Setup Tick Loop
+  // Setup Tick Loop (independent of visual refresh, but keeps store ticking)
   useEffect(() => {
     const interval = setInterval(() => {
       state.tick();
@@ -20,9 +20,8 @@ export const StatusPanel = () => {
       </h2>
       <div className="panel-content" style={{ flexDirection: 'column', gap: '10px' }}>
 
-        {/* Annunciator Grid */}
+        {/* Annunciator Grid - Kept as is for critical alarms */}
         <div className="annunciator-grid">
-            {/* Primary Column */}
             <div className="annunciator-col">
                 <div className="annunciator-header">PRIMARY</div>
                 <AlarmTile label="RX OVER LIMIT" active={state.rx_over_limit} />
@@ -34,7 +33,6 @@ export const StatusPanel = () => {
                 <AlarmTile label="SI ENGAGED" active={state.safety_injection_engaged} />
             </div>
 
-            {/* Secondary Column */}
             <div className="annunciator-col">
                 <div className="annunciator-header">SECONDARY</div>
                 <AlarmTile label="SG HI LEVEL" active={state.sg_high_level} />
@@ -45,7 +43,6 @@ export const StatusPanel = () => {
                 <AlarmTile label="MS RAD MON" active={state.ms_rad_monitor} />
             </div>
 
-            {/* Turbine Column */}
             <div className="annunciator-col">
                 <div className="annunciator-header">TURBINE</div>
                 <AlarmTile label="TURBINE TRIP" active={state.turbine_trip} />
@@ -57,29 +54,9 @@ export const StatusPanel = () => {
             </div>
         </div>
 
-        {/* Main Display Area (Split Diagram & Gauges) */}
-        <div style={{ display: 'flex', flex: 1, width: '100%', gap: '12px', minHeight: 0 }}>
-
-          {/* Left: Diagram (Simplified Canvas/SVG) */}
-          <div style={{ flex: 2, border: '1px solid var(--border-color)', borderRadius: 'var(--radius)', position: 'relative', background: '#0f172a' }}>
-            <Schematic state={state} />
-          </div>
-
-          {/* Right: Key Values List */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--bg-app)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius)' }}>
-            <ValueDisplay label="Reactivity" value={state.display_reactivity.toFixed(1)} unit="%" />
-            <ValueDisplay label="Core Temp" value={state.display_core_t.toFixed(1)} unit="°C" alert={state.core_temp_high} />
-            <ValueDisplay label="Pri Flow" value={(state.display_pri_flow/1000).toFixed(1)} unit="kL/s" />
-            <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
-            <ValueDisplay label="SG Level" value={state.display_sg_level.toFixed(1)} unit="%"
-              alert={state.sg_low_level || state.sg_high_level} />
-            <ValueDisplay label="Stm Press" value={state.display_steam_press.toFixed(1)} unit="kg/cm²" />
-            <ValueDisplay label="FW Flow" value={state.display_fw_flow.toFixed(0)} unit="L/s"
-              alert={state.fw_low_flow} />
-            <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
-            <ValueDisplay label="Turb Speed" value={state.turbine_rpm.toFixed(0)} unit="rpm" />
-          </div>
-
+        {/* Main Schematic Area */}
+        <div style={{ flex: 1, width: '100%', border: '1px solid var(--border-color)', borderRadius: 'var(--radius)', background: '#0f172a', position: 'relative', overflow: 'hidden' }}>
+            <SchematicView state={state} />
         </div>
 
       </div>
@@ -93,78 +70,178 @@ const AlarmTile = ({ label, active }: { label: string, active: boolean }) => (
   </div>
 );
 
-const ValueDisplay = ({ label, value, unit, alert = false }: { label: string, value: string, unit: string, alert?: boolean }) => (
-  <div className={`value-row ${alert ? 'alert' : ''}`}>
-    <span className="value-label">{label}</span>
-    <span className="value-data">
-      {value}<span className="unit">{unit}</span>
-    </span>
-  </div>
-);
+// ----------------------------------------------------------------------------
+// Schematic View
+// ----------------------------------------------------------------------------
 
-// Simplified SVG Schematic
-const Schematic = ({ state }: { state: any }) => {
-  // Colors from CSS vars (hardcoded here for SVG compatibility, or use 'currentColor' tricks, but hex is safer for lines)
-  // Normal Blue: #3b82f6, Danger Red: #ef4444, Muted: #475569
-  const colorFlow = '#3b82f6';
-  const colorSteam = '#ef4444';
-  const colorMuted = '#334155';
-  const colorOn = '#22c55e';
-  const colorOff = '#eab308'; // Amber for closed/off if abnormal, or just grey. Let's use amber for closed valves.
+const SchematicView = ({ state }: { state: any }) => {
+  // Colors
+  const cPipeHot = "#ef4444"; // Red
+  const cPipeCold = "#3b82f6"; // Blue
+  const cComponent = "#1e293b"; // Slate 800
+  const cBorder = "#94a3b8"; // Slate 400
+  const cValveOpen = "#22c55e"; // Green
 
-  const fwColor = state.display_fw_flow > 100 ? colorFlow : colorMuted;
-  const steamColor = state.msiv && state.display_steam_press > 10 ? colorSteam : colorMuted;
+  // Dimensions
+  const W = 800;
+  const H = 500;
+
+  // Formatting helpers
+  const fmt = (n: number, d = 0) => n.toFixed(d);
 
   return (
-    <svg width="100%" height="100%" viewBox="0 0 300 200" style={{ padding: '10px' }}>
-      <defs>
-        <marker id="arrow" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L6,3 z" fill={colorFlow} />
-        </marker>
-      </defs>
+    <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ background: '#020617' }}>
 
-      {/* FW Pump */}
-      <circle cx="50" cy="150" r="12" stroke="#94a3b8" strokeWidth="2" fill={state.fw_pump ? colorOn : colorMuted} />
-      <text x="50" y="175" textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="bold">FW PUMP</text>
+      {/* --------------------------------------------------------------------------
+          PIPING LAYOUT
+         -------------------------------------------------------------------------- */}
 
-      {/* FW Line */}
-      <line x1="62" y1="150" x2="100" y2="150" stroke={fwColor} strokeWidth="4" />
+      {/* Primary Loop: Reactor -> SG */}
+      <path d="M 200 200 L 350 200 L 350 180" fill="none" stroke={cPipeHot} strokeWidth="8" />
 
-      {/* FW IV */}
-      <rect x="100" y="138" width="12" height="24" rx="2" fill={state.fwiv ? colorOn : colorOff} stroke="#000" />
-      <text x="106" y="130" textAnchor="middle" fontSize="10" fill="#94a3b8">IV</text>
+      {/* Primary Loop: SG -> Pump -> Reactor */}
+      <path d="M 350 350 L 350 380 L 200 380" fill="none" stroke={cPipeCold} strokeWidth="8" />
 
-      {/* Line to CV */}
-      <line x1="112" y1="150" x2="140" y2="150" stroke={fwColor} strokeWidth="4" />
+      {/* Steam Line: SG -> MSIV -> Header */}
+      <path d="M 400 150 L 400 100 L 550 100" fill="none" stroke="#f8fafc" strokeWidth="6" />
+      {/* Header split to Turbine Valves */}
+      <path d="M 550 100 L 550 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 550 160 L 620 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 550 160 L 550 200 L 620 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 550 200 L 550 240 L 620 240" fill="none" stroke="#f8fafc" strokeWidth="4" />
 
-      {/* FW CV */}
-      <path d="M 140 140 L 150 160 L 160 140 Z" fill="none" stroke="#94a3b8" strokeWidth="2" />
-      <path d="M 140 160 L 150 140 L 160 160 Z" fill="none" stroke="#94a3b8" strokeWidth="2" />
-      <text x="150" y="130" textAnchor="middle" fontSize="10" fill="#f8fafc">CV {(state.fwcv_degree*100).toFixed(0)}%</text>
+      {/* Feedwater Line: Condenser -> Pump -> Valves -> SG */}
+      {/* Condenser Out */}
+      <path d="M 700 400 L 700 430 L 600 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Pump to Valves */}
+      <path d="M 560 430 L 500 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Up to SG */}
+      <path d="M 450 430 L 420 430 L 420 300" fill="none" stroke={cPipeCold} strokeWidth="6" />
 
-      {/* Line to SG */}
-      <line x1="160" y1="150" x2="200" y2="150" stroke={fwColor} strokeWidth="4" />
-      <line x1="200" y1="150" x2="200" y2="100" stroke={fwColor} strokeWidth="4" />
+
+      {/* --------------------------------------------------------------------------
+          COMPONENTS
+         -------------------------------------------------------------------------- */}
+
+      {/* Reactor Container */}
+      <rect x="50" y="100" width="150" height="300" rx="20" fill={cComponent} stroke={cBorder} strokeWidth="4" />
+      <text x="125" y="250" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Reactor</text>
 
       {/* Steam Generator */}
-      <rect x="180" y="50" width="40" height="80" rx="6" fill="#1e293b" stroke="#94a3b8" strokeWidth="2" />
-      <text x="200" y="100" textAnchor="middle" fontSize="10" fill="#94a3b8" opacity="0.5">SG</text>
+      <rect x="320" y="150" width="100" height="200" rx="15" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="370" y="250" textAnchor="middle" fill={cBorder} fontSize="16" fontWeight="bold">SG</text>
+      {/* SG Internal Coils (Visual) */}
+      <path d="M 350 200 Q 330 250 350 300 Q 370 250 350 200" fill="none" stroke={cPipeHot} strokeWidth="4" opacity="0.5" />
 
-      {/* Water Level Visualization */}
-      <rect x="182" y={128 - (state.display_sg_level * 0.76)} width="36" height={state.display_sg_level * 0.76} fill={colorFlow} opacity="0.6" rx="2" />
+      {/* Turbine */}
+      <rect x="650" y="120" width="120" height="200" rx="10" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="710" y="220" textAnchor="middle" fill={cBorder} fontSize="18" fontWeight="bold">Turbine</text>
 
-      {/* Steam Line */}
-      <line x1="200" y1="50" x2="200" y2="30" stroke={steamColor} strokeWidth="4" />
-      <line x1="200" y1="30" x2="250" y2="30" stroke={steamColor} strokeWidth="4" />
+      {/* Condenser */}
+      <path d="M 650 350 L 770 350 Q 770 400 710 420 Q 650 400 650 350" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="710" y="380" textAnchor="middle" fill={cBorder} fontSize="14">Condenser</text>
 
+
+      {/* PUMPS */}
+      {/* RCP (Reactor Coolant Pump) */}
+      <circle cx="280" cy="380" r="15" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="280" y="415" textAnchor="middle" fill="#94a3b8" fontSize="10">RCP</text>
+
+      {/* FW Pump */}
+      <circle cx="580" cy="430" r="15" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="580" y="465" textAnchor="middle" fill="#94a3b8" fontSize="10">FW PUMP</text>
+
+
+      {/* VALVES */}
       {/* MSIV */}
-      <rect x="250" y="20" width="12" height="20" rx="2" fill={state.msiv ? colorOn : colorOff} stroke="#000" />
-      <text x="256" y="15" textAnchor="middle" fontSize="10" fill="#94a3b8">MSIV</text>
+      <Valve x={480} y={100} open={state.msiv} label="MSIV" vertical={false} />
 
-      {/* To Turbine */}
-      <line x1="262" y1="30" x2="290" y2="30" stroke={steamColor} strokeWidth="4" />
-      <text x="290" y="30" textAnchor="end" fontSize="10" fill="#f8fafc" alignmentBaseline="middle">Turbine</text>
+      {/* Turbine Valves (Visual only, mapped to CVs?) */}
+      <Valve x={620} y={160} open={true} label="Speed CV" scale={0.7} />
+      <Valve x={620} y={200} open={true} label="Load CV" scale={0.7} />
+      <Valve x={620} y={240} open={false} label="Bypass" scale={0.7} />
+
+      {/* FW Isolation */}
+      <Valve x={480} y={430} open={state.fwiv} label="FW IV" vertical={false} />
+
+      {/* FW Control */}
+      <Valve x={430} y={430} open={state.fwcv_degree > 0} label={`FW CV ${(state.fwcv_degree*100).toFixed(0)}%`} vertical={false} type="control" />
+
+
+      {/* --------------------------------------------------------------------------
+          DISPLAYS (Green Digital Style)
+         -------------------------------------------------------------------------- */}
+
+      {/* 1. Reactivity */}
+      <DigitalGauge x={40} y={40} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" />
+
+      {/* 2. Core Temp */}
+      <DigitalGauge x={150} y={40} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" />
+
+      {/* 3. Primary Flow (Near RCP Loop) */}
+      <DigitalGauge x={230} y={390} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" />
+
+      {/* 4. SG Level (On SG) */}
+      <DigitalGauge x={320} y={200} label="SG Level" value={fmt(state.display_sg_level, 1)} unit="%"
+          warn={state.sg_low_level || state.sg_high_level}
+      />
+
+      {/* 5. Steam Pressure (Top Line) */}
+      <DigitalGauge x={460} y={40} label="Steam Press" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" />
+
+      {/* 6. FW Flow (Bottom Line) */}
+      <DigitalGauge x={530} y={370} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+          warn={state.fw_low_flow}
+      />
+
+      {/* 7. Turbine Speed */}
+      <DigitalGauge x={650} y={40} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" />
 
     </svg>
   );
+};
+
+// ----------------------------------------------------------------------------
+// SVG Helpers
+// ----------------------------------------------------------------------------
+
+const DigitalGauge = ({ x, y, label, value, unit, warn = false }: { x: number, y: number, label: string, value: string, unit: string, warn?: boolean }) => {
+    return (
+        <g transform={`translate(${x}, ${y})`}>
+            {/* Label Background */}
+            <rect x="0" y="0" width="100" height="20" fill="#333" />
+            <text x="50" y="14" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="bold" fontFamily="sans-serif">{label}</text>
+
+            {/* Value Background */}
+            <rect x="0" y="20" width="100" height="30" fill="#000" stroke={warn ? "#ef4444" : "#22c55e"} strokeWidth={warn ? 2 : 0} />
+            <text x="50" y="42" textAnchor="middle" fill={warn ? "#ef4444" : "#22c55e"} fontSize="18" fontWeight="bold" fontFamily="monospace">
+                {value} <tspan fontSize="10" fill="#666">{unit}</tspan>
+            </text>
+        </g>
+    );
+};
+
+const Valve = ({ x, y, open, label, vertical = true, scale = 1, type = 'gate' }: any) => {
+    const cBody = "#94a3b8";
+    const cFill = open ? "#22c55e" : "#ef4444";
+
+    return (
+        <g transform={`translate(${x}, ${y}) scale(${scale})`}>
+            {/* Valve Symbol (Bowtie) */}
+            <path d="M -10 -10 L 10 10 L 10 -10 L -10 10 Z" fill={cFill} stroke="black" strokeWidth="1" transform={vertical ? "rotate(90)" : ""} />
+
+            {/* Stem & Actuator */}
+            <line x1="0" y1="0" x2="0" y2="-15" stroke={cBody} strokeWidth="2" />
+            {type === 'control' ? (
+                <path d="M -10 -25 A 10 10 0 0 1 10 -25" fill="none" stroke={cBody} strokeWidth="2" />
+            ) : (
+                <line x1="-8" y1="-15" x2="8" y2="-15" stroke={cBody} strokeWidth="4" />
+            )}
+
+            {/* Label */}
+            {label && (
+                <text x="0" y="-30" textAnchor="middle" fontSize="10" fill="#cbd5e1">{label}</text>
+            )}
+        </g>
+    );
 };
