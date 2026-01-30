@@ -25,19 +25,20 @@ export const ControlPanel = () => {
         {/* Reactor Column */}
         <ControlColumn label="REACTOR">
             <TripButton label="TRIP REACTOR" onClick={s.toggleTripReactor} tripped={s.trip_reactor} />
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%'}}>
-                 <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
-                 <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
-                 <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                 <ToggleButton label="Safety Injection" active={s.activate_si} onClick={s.toggleSi} />
+                 <ToggleButton label="Reactor Coolant Pump" active={s.rcp} onClick={s.toggleRcp} />
+                 <ToggleButton label="Power Operated Relief Valve" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
         </ControlColumn>
 
         {/* SG Column */}
-        <ControlColumn label="STEAM GEN">
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', width: '100%'}}>
-                <ToggleButton label="FW PUMP" active={s.fw_pump} onClick={s.toggleFwPump} />
-                <ToggleButton label="FW IV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
-                <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
+        <ControlColumn label="STEAM GENERATOR">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <ToggleButton label="Feedwater Pump" active={s.fw_pump} onClick={s.toggleFwPump} />
+                <ToggleButton label="Feedwater Isolation Valve" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
+                <ToggleButton label="Main Steam Isolation Valve" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }}></div>
@@ -53,7 +54,7 @@ export const ControlPanel = () => {
                 </button>
             </div>
 
-            <Slider label="FW CV %" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
+            <Slider label="Feedwater Control Valve" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
 
         </ControlColumn>
 
@@ -61,9 +62,9 @@ export const ControlPanel = () => {
         <ControlColumn label="TURBINE">
              <TripButton label="TRIP TURBINE" onClick={s.toggleTripTurbine} tripped={s.trip_turbine} />
 
-             <Slider label="SPEED CV" value={s.turbine_speed_cv} onChange={s.setTurbineSpeedCv} />
-             <Slider label="LOAD CV" value={s.turbine_load_cv} onChange={s.setTurbineLoadCv} />
-             <Slider label="BYPASS CV" value={s.turbine_bypass_cv} onChange={s.setTurbineBypassCv} />
+             <Slider label="Turbine Speed Control Valve" value={s.turbine_speed_cv} onChange={s.setTurbineSpeedCv} />
+             <Slider label="Turbine Load Control Valve" value={s.turbine_load_cv} onChange={s.setTurbineLoadCv} />
+             <Slider label="Turbine Bypass Control Valve" value={s.turbine_bypass_cv} onChange={s.setTurbineBypassCv} />
         </ControlColumn>
 
       </div>
@@ -84,7 +85,6 @@ export const ControlPanel = () => {
                     style={{ flex: 1, minWidth: 0 }}
                     value={s.scenarioPreset}
                     onChange={(e) => {
-                        // User requested to remove the confirmation dialog
                         s.setScenarioPreset(e.target.value as ScenarioPreset);
                     }}
                     title="Scenario Preset"
@@ -138,10 +138,10 @@ const ToggleButton = ({ label, active, onClick, onLabel = 'ON', offLabel = 'OFF'
     <button
         onClick={onClick}
         className={`dcs-btn ${active ? 'active-green' : ''}`}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+        style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', minHeight: '36px' }}
     >
-        <span style={{ fontSize: '0.65rem', marginBottom: '2px' }}>{label}</span>
-        <span>{active ? onLabel : offLabel}</span>
+        <span style={{ fontSize: '0.7rem', textAlign: 'left', marginRight: '8px', lineHeight: '1.1' }}>{label}</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{active ? onLabel : offLabel}</span>
     </button>
 );
 
@@ -153,7 +153,8 @@ const TripButton = ({ label, onClick, tripped }: { label: string, onClick: () =>
             width: '100%', padding: '12px',
             border: tripped ? '2px solid #000' : '1px solid #7f1d1d',
             opacity: tripped ? 0.7 : 1,
-            fontSize: '0.85rem', letterSpacing: '0.05em'
+            fontSize: '0.85rem', letterSpacing: '0.05em',
+            marginBottom: '8px'
         }}
     >
         {label}
@@ -162,9 +163,9 @@ const TripButton = ({ label, onClick, tripped }: { label: string, onClick: () =>
 
 const Slider = ({ label, value, onChange, disabled = false }: { label: string, value: number, onChange: (val: number) => void, disabled?: boolean }) => (
     <div className="dcs-slider-container" style={{ opacity: disabled ? 0.5 : 1 }}>
-        <div className="dcs-slider-label">
-            <span>{label}</span>
-            <span style={{ fontFamily: 'monospace', color: 'var(--color-info)' }}>{(value * 100).toFixed(0)}%</span>
+        <div className="dcs-slider-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '4px' }}>
+            <span style={{ fontSize: '0.7rem', lineHeight: '1.1' }}>{label}</span>
+            <span style={{ fontFamily: 'monospace', color: 'var(--color-info)', fontSize: '0.8rem' }}>{(value * 100).toFixed(0)}%</span>
         </div>
         <input
             type="range"
