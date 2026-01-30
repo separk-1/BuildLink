@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSimulationStore, type ScenarioPreset } from '../store/simulationStore';
 import { logger } from '../utils/logger';
 
@@ -10,6 +10,26 @@ const formatTime = (t: number) => {
 
 export const ControlPanel = () => {
   const s = useSimulationStore();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingScenario, setPendingScenario] = useState<ScenarioPreset | null>(null);
+
+  const handleScenarioChange = (val: ScenarioPreset) => {
+      setPendingScenario(val);
+      setShowConfirm(true);
+  };
+
+  const confirmScenarioChange = () => {
+      if (pendingScenario) {
+          s.setScenarioPreset(pendingScenario);
+      }
+      setShowConfirm(false);
+      setPendingScenario(null);
+  };
+
+  const cancelScenarioChange = () => {
+      setShowConfirm(false);
+      setPendingScenario(null);
+  };
 
   return (
     <>
@@ -82,11 +102,9 @@ export const ControlPanel = () => {
             {!s.trainingMode && (
                 <select
                     className="dcs-select"
-                    style={{ flex: 1, minWidth: 0 }}
+                    style={{ width: '120px', fontSize: '0.7rem' }}
                     value={s.scenarioPreset}
-                    onChange={(e) => {
-                        s.setScenarioPreset(e.target.value as ScenarioPreset);
-                    }}
+                    onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
                     title="Scenario Preset"
                 >
                     <option value="cv">SCENARIO A</option>
@@ -121,6 +139,38 @@ export const ControlPanel = () => {
                 LOGS
             </button>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+          <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 100
+          }}>
+              <div style={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius)',
+                  padding: '20px',
+                  width: '300px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}>
+                  <h3 style={{ marginTop: 0, color: '#f8fafc', fontSize: '1rem' }}>Change Scenario?</h3>
+                  <p style={{ color: '#cbd5e1', fontSize: '0.85rem', marginBottom: '20px' }}>
+                      Time will be reset. Do you want to continue?
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                      <button className="dcs-btn" onClick={cancelScenarioChange} style={{ borderColor: '#94a3b8', color: '#cbd5e1' }}>
+                          Cancel
+                      </button>
+                      <button className="dcs-btn" onClick={confirmScenarioChange} style={{ borderColor: '#ef4444', color: '#ef4444' }}>
+                          Confirm
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </>
   );
 };

@@ -164,6 +164,13 @@ export const ProcedurePanel = () => {
 
   }, [activeStepId, graphData]);
 
+  // Find Step Name
+  const activeStepName = useMemo(() => {
+      if (!activeStepId || graphData.nodes.length === 0) return null;
+      const node = graphData.nodes.find(n => n.id === activeStepId);
+      return node ? node.name : activeStepId;
+  }, [activeStepId, graphData]);
+
   // Auto Focus Logic (Zoom to Highlighted Chain)
   useEffect(() => {
     if (!autoFocus || !activeStepId || !fgRef.current || highlightSet.size === 0) return;
@@ -175,14 +182,17 @@ export const ProcedurePanel = () => {
 
     // Small delay to allow graph to settle
     const timer = setTimeout(() => {
-        // Calculate bounding box or just use zoomToFit with filter
-        // ForceGraph2D's zoomToFit doesn't accept a filter directly, sadly.
-        // It fits *all* nodes.
-        // So we must use 'zoomToFit' with a coordinate calculation?
-        // Actually, many versions of force-graph allow passing (padding, duration, node => boolean).
-        // Let's check typical API. Standard API is zoomToFit(duration, padding, nodeFilter).
-        // If nodeFilter is supported:
-        fgRef.current.zoomToFit(1000, 100, (node: CustomNode) => highlightSet.has(node.id));
+        // If single node, use centerAt + specific zoom
+        if (highlightSet.size === 1) {
+            const node = relevantNodes[0];
+            if (node.x !== undefined && node.y !== undefined) {
+                fgRef.current.centerAt(node.x, node.y, 1000);
+                fgRef.current.zoom(3, 2000); // Zoom level 3 is moderate (default 1)
+            }
+        } else {
+             // Standard fit for multiple nodes (fallback)
+             fgRef.current.zoomToFit(1000, 100, (node: CustomNode) => highlightSet.has(node.id));
+        }
     }, 200);
 
     return () => clearTimeout(timer);
@@ -242,20 +252,6 @@ export const ProcedurePanel = () => {
       const sourceId = start.id;
       const targetId = end.id;
 
-      // Check if this link is part of the "Active Chain"
-      // It is part of the chain if BOTH source and target are in highlightSet
-      // AND (it's a direct link from activeStep OR it shares the class_num of a direct link)
-
-      // Simple approximation: If both nodes are in highlightSet, highlight the link?
-      // No, that might highlight cross-links between highlighted nodes that aren't relevant.
-      // But for tree-like procedures, it's probably fine.
-      // Better: Check if one of them is the Active Step, OR if they share a class_num with the active step's outgoing link.
-
-      // Check class_num relevance
-      // We need to know the class_num of the *active outgoing link*
-      // This is expensive to calculate inside paintLink every frame.
-      // Optimization: We rely on highlightSet containing only the relevant nodes.
-      // If both source and target are in highlightSet, we assume the link is relevant.
       const isRelevant = highlightSet.has(sourceId) && highlightSet.has(targetId);
 
       let strokeStyle = '#475569';
@@ -301,16 +297,20 @@ export const ProcedurePanel = () => {
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <span>PROCEDURES / KG</span>
-            {activeStepId && (
+            {activeStepName && (
                  <span style={{
                      fontSize: '0.7rem',
                      background: 'rgba(255, 255, 255, 0.1)',
                      padding: '2px 6px',
                      borderRadius: '4px',
                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                     color: '#eab308'
-                 }}>
-                     STEP: {activeStepId}
+                     color: '#eab308',
+                     whiteSpace: 'nowrap',
+                     maxWidth: '200px',
+                     overflow: 'hidden',
+                     textOverflow: 'ellipsis'
+                 }} title={activeStepName}>
+                     {activeStepName}
                  </span>
             )}
         </div>
@@ -351,7 +351,17 @@ export const ProcedurePanel = () => {
           onEngineStop={() => {
               // Initial focus
               if (autoFocus && activeStepId && highlightSet.size > 0 && fgRef.current) {
-                 fgRef.current.zoomToFit(1000, 100, (n: CustomNode) => highlightSet.has(n.id));
+                // Same logic as useEffect
+                 if (highlightSet.size === 1) {
+                     // Note: We need to find the node object from graphData.nodes again
+                     const node = graphData.nodes.find(n => n.id === activeStepId);
+                     if (node && node.x !== undefined) {
+                         fgRef.current.centerAt(node.x, node.y, 1000);
+                         fgRef.current.zoom(3, 2000);
+                     }
+                 } else {
+                     fgRef.current.zoomToFit(1000, 100, (n: CustomNode) => highlightSet.has(n.id));
+                 }
               }
           }}
           // Customize Links
