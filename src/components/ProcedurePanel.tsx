@@ -104,39 +104,11 @@ export const ProcedurePanel = () => {
       if (!activeStepId) return set;
 
       set.add(activeStepId);
-
-      // Find direct outgoing links
-      const directLinks = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === activeStepId;
-      });
-
-      directLinks.forEach(l => {
-          // Exclude 'next' links from highlighting to avoid cluttering focus
-          if (l.label === 'next' || l.label === 'follow_next') return;
-
-          set.add(l.label);
-          const targetId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target as string;
-          set.add(targetId);
-
-          // Check for extended connections via class_num
-          if (l.class_num) {
-              // Find other links with same class_num
-              const extendedLinks = graphData.links.filter(el => el.class_num === l.class_num);
-              extendedLinks.forEach(el => {
-                  const elTarget = typeof el.target === 'object' ? (el.target as CustomNode).id : el.target as string;
-                  const elSource = typeof el.source === 'object' ? (el.source as CustomNode).id : el.source as string;
-                  set.add(elTarget);
-                  set.add(elSource);
-                  // We implicitly want to highlight the link itself too.
-                  // We can't store link reference in a Set<string> easily unless we generate IDs for links.
-                  // Instead, paintLink will check if (source in Set && target in Set && class_num matches).
-              });
-          }
-      });
+      // Removed edge and neighbor highlighting logic as per user request.
+      // "Only the current active step node should be highlighted. Edges and subsequent steps should remain in the default style."
 
       return set;
-  }, [activeStepId, graphData]);
+  }, [activeStepId]);
 
 
   // Analyze Current Step Options (Memoized)
@@ -305,12 +277,14 @@ export const ProcedurePanel = () => {
       ctx.stroke();
 
       // Label
-      if (link.label && (isRelevant || globalScale > 0.8)) {
+      if (link.label) {
           const midX = (start.x! + end.x!) / 2;
           const midY = (start.y! + end.y!) / 2;
-          const fontSize = 16 / globalScale; // Increased font size to 16
+          // Scale labels with zoom: fixed size in graph units (e.g., 4)
+          // As globalScale increases (zoom in), the screen size (4 * globalScale) increases.
+          const fontSize = 4;
 
-          if (globalScale > 0.5) {
+          if (globalScale > 0.2) {
               ctx.font = `${fontSize}px Sans-Serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';

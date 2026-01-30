@@ -104,22 +104,27 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Steam Line: SG -> MSIV -> Header */}
       <path d="M 400 150 L 400 100 L 550 100" fill="none" stroke="#f8fafc" strokeWidth="6" />
-      {/* Header split to Turbine Valves */}
-      <path d="M 550 100 L 550 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
-      <path d="M 550 160 L 620 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
-      <path d="M 550 160 L 550 200 L 620 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
-      <path d="M 550 200 L 550 240 L 620 240" fill="none" stroke="#f8fafc" strokeWidth="4" />
 
-      {/* Bypass Line to Condenser */}
-      <path d="M 620 240 L 680 240 L 680 350" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      {/* Header split to Turbine Valves */}
+      <path d="M 550 100 L 550 240" fill="none" stroke="#f8fafc" strokeWidth="4" /> {/* Main Vertical Header */}
+
+      {/* Speed CV -> Turbine */}
+      <path d="M 550 160 L 620 160 L 650 160" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
+      {/* Load CV -> Turbine */}
+      <path d="M 550 200 L 620 200 L 650 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
+      {/* Bypass -> Condenser */}
+      <path d="M 550 240 L 620 240 L 680 240 L 680 350" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
 
       {/* Feedwater Line: Condenser -> Pump -> Valves -> SG */}
       {/* Condenser Out */}
       <path d="M 700 400 L 700 430 L 600 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
-      {/* Pump to Valves */}
-      <path d="M 560 430 L 500 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
-      {/* Up to SG */}
-      <path d="M 450 430 L 420 430 L 420 300" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Pump to Valves (shifted right) */}
+      <path d="M 560 430 L 550 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Up to SG (shifted right) */}
+      <path d="M 500 430 L 420 430 L 420 300" fill="none" stroke={cPipeCold} strokeWidth="6" />
 
 
       {/* --------------------------------------------------------------------------
@@ -164,11 +169,11 @@ const SchematicView = ({ state }: { state: any }) => {
       <Valve x={620} y={200} open={true} label="Load CV" scale={0.7} />
       <Valve x={620} y={240} open={false} label="Bypass" scale={0.7} vertical={false} />
 
-      {/* FW Isolation */}
-      <Valve x={480} y={430} open={state.fwiv} label="FW IV" vertical={false} />
+      {/* FW Isolation (Shifted Right) */}
+      <Valve x={530} y={430} open={state.fwiv} label="FW IV" vertical={false} />
 
-      {/* FW Control */}
-      <Valve x={430} y={430} open={state.fwcv_degree > 0} label={`FW CV ${(state.fwcv_degree*100).toFixed(0)}%`} vertical={false} type="control" />
+      {/* FW Control (Shifted Right) */}
+      <Valve x={480} y={430} open={state.fwcv_degree > 0} label={`FW CV ${(state.fwcv_degree*100).toFixed(0)}%`} vertical={false} type="control" />
 
 
       {/* --------------------------------------------------------------------------
@@ -192,8 +197,8 @@ const SchematicView = ({ state }: { state: any }) => {
       {/* 5. Steam Pressure (Top Line) */}
       <DigitalGauge x={460} y={40} label="Steam Press" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" />
 
-      {/* 6. FW Flow (Bottom Line) */}
-      <DigitalGauge x={320} y={390} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+      {/* 6. FW Flow (Bottom Line - Shifted Right) */}
+      <DigitalGauge x={370} y={390} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
           warn={state.fw_low_flow}
       />
 

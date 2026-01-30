@@ -426,8 +426,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         updates.display_reactivity = addNoise(new_reactivity, 0.5, s.trainingMode);
         updates.display_pri_flow = addNoise(new_pri_flow, 500, s.trainingMode);
         updates.display_core_t = addNoise(new_core_t, 1.0, s.trainingMode);
-        updates.display_fw_flow = addNoise(new_fw_flow, 20, s.trainingMode);
-        updates.display_sg_level = addNoise(new_sg_level, 0.5, s.trainingMode);
+
+        const raw_fw_display = addNoise(new_fw_flow, 20, s.trainingMode);
+        updates.display_fw_flow = Math.max(0, raw_fw_display);
+
+        const raw_sg_display = addNoise(new_sg_level, 0.5, s.trainingMode);
+        updates.display_sg_level = Math.max(0, raw_sg_display);
+
         updates.display_steam_press = addNoise(new_press, 0.5, s.trainingMode);
     }
 
