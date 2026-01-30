@@ -1,47 +1,50 @@
-# Fact-Based Step Logic
+# Operator-Driven Procedure Logic
 
-This document describes the exact logic used by the simulation system to determine the active procedure step in the Knowledge Graph. The logic is implemented in `src/components/ProcedurePanel.tsx` within the `getCurrentStepNodeId` function.
+This document describes the philosophy and implementation of the "Operator-Driven" step transition logic in the Knowledge Graph.
 
-## Overview
-The system monitors simulation state variables (e.g., flow rates, valve modes, trip statuses) and maps specific combinations of these states to a "Step ID". These IDs correspond to nodes in the Knowledge Graph (e.g., `pc_st_01_01`).
+## Philosophy
 
-## Transition Logic
+The Knowledge Graph serves as a **Process Map** for the operator, not an automation tool. The goal is to visualize the procedure flow and require the operator to actively engage with the steps (Verifying, Deciding, Acting).
 
-The logic is evaluated sequentially in the order listed below. The first condition that matches determines the active step.
+Unlike the previous "Fact-Based" logic which automatically jumped steps based on simulator state, this system requires explicit **Operator Action** to advance. This ensures:
+1.  **Cognitive Engagement:** The operator must consciously confirm checks and make decisions.
+2.  **Procedural Adherence:** The system tracks the operator's progress through the procedure, not just the plant's state.
+3.  **Training Value:** It reinforces the "Verify-Act" loop.
 
-### 1. Step 1: Monitoring Phase (`pc_st_01_01`)
-**Condition:**
-- Feedwater Flow (`fw_flow`) is greater than 1000 L/s
-- **AND** Feedwater Low Flow Alarm (`fw_low_flow`) is **FALSE**
+## Transition Types
 
-### 2. Step 2: Check Auto Mode (`pc_st_02_01`)
-**Condition:**
-- Feedwater Low Flow Alarm (`fw_low_flow`) is **TRUE**
-- **AND** Feedwater Control Valve Mode (`fwcv_mode`) is **AUTO** (True)
+The system analyzes the outgoing edges of the current active step in the Knowledge Graph to determine the interaction mode.
 
-### 3. Step 3: Check Pump Status (`pc_st_03_01`)
-**Condition:**
-- Feedwater Control Valve Mode (`fwcv_mode`) is **MANUAL** (False)
-- **AND** Feedwater Pump Status (`fw_pump`) is **ON** (True)
+### 1. Verify Step (`VERIFY`)
+**Condition:** The current step has an outgoing edge labeled `verify` connecting to a component (Indicator/Controller).
+**Behavior:**
+*   The `verify` edge is highlighted in **Yellow**.
+*   A **"CONFIRM CHECK"** button appears in the procedure panel.
+*   **Operator Action:** The operator checks the component value on the panel, then clicks "CONFIRM CHECK".
+*   **Result:** The system advances to the `next` step.
 
-### 4. Step 4: Rapid Shutdown (Trip) Actions
-This phase handles reactor or turbine trips. It contains sub-steps for verification.
+### 2. Decision Step (`DECISION`)
+**Condition:** The current step has outgoing edges labeled `true_then` and `false_then` (or leads to a Logic Node with these edges).
+**Behavior:**
+*   The `if` or logic edges are highlighted in **Yellow**.
+*   **"YES (TRUE)"** and **"NO (FALSE)"** buttons appear.
+*   **Operator Action:** The operator evaluates the condition (mentally or by checking values) and selects the appropriate path.
+*   **Result:** The system branches to the selected target node.
 
-#### Step 4.0: General Trip Entry (`pc_st_04_01`)
-**Condition:**
-- Reactor Trip (`trip_reactor`) is **TRUE**
-- **OR** Turbine Trip (`trip_turbine`) is **TRUE**
-*(Note: This is the fallback if specific verification sub-steps below are not yet met but a trip has occurred)*
+### 3. Action / Standard Step (`STEP`)
+**Condition:** The current step has a simple `next` or generic edge (e.g., `follow_next_steps`).
+**Behavior:**
+*   The `next` edge is highlighted in **Blue**.
+*   A **"NEXT STEP"** button appears.
+*   **Operator Action:** The operator performs the procedure action (e.g., "Trip Reactor") and clicks "NEXT STEP".
+*   **Result:** The system advances to the next step.
 
-#### Step 5: Turbine Trip Verification (`pc_st_05_02`)
-**Condition:**
-- Turbine Trip (`trip_turbine`) is **TRUE**
-- **AND** Turbine Speed CV (`turbine_speed_cv`) is **0** (Fully Closed)
+## Graph Data Structure
+The logic relies on the CSV relationship definitions:
+*   `verify`: Connects Step -> Component.
+*   `if`: Connects Step -> Logic Node.
+*   `true_then` / `false_then`: Connect Logic Node -> Next Step/Action.
+*   `next`: Sequential connection.
 
-#### Step 6: Reactor Trip Verification (`pc_st_06_02`)
-**Condition:**
-- Reactor Trip (`trip_reactor`) is **TRUE**
-- **AND** All Rods Down (`all_rods_down`) is **TRUE**
-
-## Default State
-If none of the above conditions are met, no step is highlighted (`null`).
+## State Management
+The active step is tracked in the global `simulationStore` (`activeStepId`). It defaults to `pc_st_01_01` (Step 1.1) on reset.

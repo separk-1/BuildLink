@@ -91,6 +91,10 @@ interface SimulationState {
   not_latched: boolean;
   not_synced_to_grid: boolean;
 
+  // --- Procedures ---
+  activeStepId: string | null;
+  setActiveStepId: (id: string | null) => void;
+
   // --- Actions ---
   setScenarioPreset: (preset: ScenarioPreset) => void;
   toggleTrainingMode: () => void;
@@ -200,10 +204,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   ...INITIAL_STATE,
   scenarioPreset: 'cv',
   trainingMode: true,
+  activeStepId: 'pc_st_01_01', // Start at Step 1.1
 
-  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE }),
+  setActiveStepId: (id) => set({ activeStepId: id }),
+  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01' }),
   toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),
-  resetSimulation: () => set((state) => ({ ...INITIAL_STATE, scenarioPreset: state.scenarioPreset, trainingMode: state.trainingMode })),
+  resetSimulation: () => set((state) => ({ ...INITIAL_STATE, scenarioPreset: state.scenarioPreset, trainingMode: state.trainingMode, activeStepId: 'pc_st_01_01' })),
 
   // --- Actions ---
   toggleTripReactor: () => {

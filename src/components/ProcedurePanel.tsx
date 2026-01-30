@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import ForceGraph2D, { type NodeObject, type LinkObject } from 'react-force-graph-2d';
 import { useSimulationStore } from '../store/simulationStore';
 import { useGraphData } from '../hooks/useGraphData';
@@ -31,27 +31,6 @@ const parseCSV = (csv: string) => {
   });
 };
 
-// Map simulation state to active Procedure Node ID
-const getCurrentStepNodeId = (state: any): string | null => {
-    // 1. Initial State -> Step 1
-    if (state.fw_flow > 1000 && !state.fw_low_flow) return 'pc_st_01_01'; // STEP1 (Monitoring)
-
-    // 2. Low Flow Alarm -> Step 2
-    if (state.fw_low_flow && state.fwcv_mode) return 'pc_st_02_01'; // STEP2 (Check Auto)
-
-    // 3. Manual Mode Taken -> Step 3
-    if (!state.fwcv_mode && state.fw_pump) return 'pc_st_03_01'; // STEP3 (Pump Check)
-
-    // 4. Trip Conditions -> Step 4 (Rapid Shutdown)
-    // Substeps for Trip
-    if (state.trip_turbine && state.turbine_speed_cv === 0) return 'pc_st_05_02'; // Turbine Trip Verify
-    if (state.trip_reactor && state.all_rods_down) return 'pc_st_06_02'; // Reactor Trip Verify
-
-    if (state.trip_reactor || state.trip_turbine) return 'pc_st_04_01'; // STEP4
-
-    return null;
-};
-
 // Color mapping based on node type
 const getNodeColor = (type: string) => {
   switch (type) {
@@ -70,9 +49,8 @@ export const ProcedurePanel = () => {
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const simState = useSimulationStore();
+  const { activeStepId, setActiveStepId } = useSimulationStore();
   const { entityCsv, relationshipCsv, loading } = useGraphData();
-  const activeNodeId = getCurrentStepNodeId(simState);
 
   // Resize Observer to handle panel resizing
   useEffect(() => {
@@ -118,13 +96,77 @@ export const ProcedurePanel = () => {
     setGraphData({ nodes, links });
   }, [entityCsv, relationshipCsv, loading]);
 
+  // Analyze Current Step Options (Memoized)
+  const stepOptions = useMemo(() => {
+      if (!activeStepId || graphData.links.length === 0) return { type: 'NONE' };
+
+      // Find all outgoing links from activeStepId
+      // Note: react-force-graph converts source to object, so we check ID safely
+      const links = graphData.links.filter(l => {
+          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+          return sId === activeStepId;
+      });
+
+      const verifyLink = links.find(l => l.label === 'verify');
+      const trueLink = links.find(l => l.label === 'true_then');
+      const falseLink = links.find(l => l.label === 'false_then');
+      const ifLink = links.find(l => l.label === 'if');
+      const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
+
+      // Also check for generic edges if no specific ones found (fallback for linear flow)
+      const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if'].includes(l.label));
+
+      // 1. Decision (Check-If)
+      if (trueLink || falseLink) {
+          // Helper to get target ID safely
+          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
+          return {
+              type: 'DECISION',
+              trueNode: getTarget(trueLink),
+              falseNode: getTarget(falseLink),
+              ifLink
+          };
+      }
+
+      // 2. Logic Node Decision (Sometimes 'if' leads to logic node which splits)
+      // Actually, in the CSV we saw: Step -> if -> LogicNode -> [Check -> Component]
+      // And Step -> true_then -> LogicNode
+      // So if we are at Step, we see true_then/false_then.
+      // My logic above handles that.
+
+      // 3. Verify
+      if (verifyLink) {
+           const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
+           // Usually verify steps also have a 'next' link to the subsequent step
+           // Or the user confirms and we just move to the 'next' link target
+           return {
+               type: 'VERIFY',
+               nextNode: getTarget(nextLink), // Proceed to next step after verification
+               verifyLink
+           };
+      }
+
+      // 4. Standard Next
+      if (nextLink || genericLink) {
+          const link = nextLink || genericLink;
+          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
+          return {
+              type: 'STEP',
+              nextNode: getTarget(link)
+          };
+      }
+
+      return { type: 'END' };
+
+  }, [activeStepId, graphData]);
+
   // Auto Focus Logic
   useEffect(() => {
-    if (!autoFocus || !activeNodeId || !fgRef.current) return;
+    if (!autoFocus || !activeStepId || !fgRef.current) return;
 
     // Small delay to allow graph to settle/render before focusing
     const timer = setTimeout(() => {
-      const node = graphData.nodes.find(n => n.id === activeNodeId);
+      const node = graphData.nodes.find(n => n.id === activeStepId);
       if (node && typeof node.x === 'number' && typeof node.y === 'number') {
         fgRef.current?.centerAt(node.x, node.y, 1000);
         fgRef.current?.zoom(2.5, 1000);
@@ -132,11 +174,11 @@ export const ProcedurePanel = () => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [activeNodeId, autoFocus, graphData]);
+  }, [activeStepId, autoFocus, graphData]);
 
 
   const paintNode = useCallback((node: CustomNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const isActive = node.id === activeNodeId;
+    const isActive = node.id === activeStepId;
     const label = node.name;
     const fontSize = 12 / globalScale;
 
@@ -144,12 +186,12 @@ export const ProcedurePanel = () => {
     if (isActive) {
       ctx.beginPath();
       ctx.arc(node.x!, node.y!, 12, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Blue Glow
       ctx.fill();
 
       ctx.beginPath();
       ctx.arc(node.x!, node.y!, 8, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillStyle = '#fff';
       ctx.fill();
     } else {
         // Standard node circle
@@ -170,7 +212,7 @@ export const ProcedurePanel = () => {
       // Offset text below node
       ctx.fillText(label, node.x!, node.y! + 8 + fontSize);
     }
-  }, [activeNodeId]);
+  }, [activeStepId]);
 
   const paintLink = useCallback((link: CustomLink, ctx: CanvasRenderingContext2D, globalScale: number) => {
       // 1. Draw Line
@@ -179,11 +221,33 @@ export const ProcedurePanel = () => {
 
       if (typeof start !== 'object' || typeof end !== 'object') return;
 
+      const sourceId = start.id;
+      const isOutgoing = sourceId === activeStepId;
+
+      let strokeStyle = '#475569';
+      let lineWidth = 1 / globalScale;
+
+      // Highlight Logic
+      if (isOutgoing) {
+          if (['verify', 'if'].includes(link.label)) {
+              strokeStyle = '#eab308'; // Yellow for Logic/Verify action
+              lineWidth = 2 / globalScale;
+          } else if (['true_then', 'false_then'].includes(link.label)) {
+              strokeStyle = '#eab308'; // Highlight branch paths too
+              lineWidth = 2 / globalScale;
+          } else if (link.label === 'next' || link.label.startsWith('follow')) {
+               strokeStyle = '#3b82f6'; // Blue for standard path
+          }
+      } else {
+          // Passive links
+           if (link.label === 'next') strokeStyle = '#334155';
+      }
+
       ctx.beginPath();
       ctx.moveTo(start.x!, start.y!);
       ctx.lineTo(end.x!, end.y!);
-      ctx.strokeStyle = link.label === 'next' ? '#3b82f6' : '#475569';
-      ctx.lineWidth = 1 / globalScale;
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = lineWidth;
       ctx.stroke();
 
       // 2. Draw Label
@@ -197,11 +261,11 @@ export const ProcedurePanel = () => {
               ctx.font = `${fontSize}px Sans-Serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillStyle = '#94a3b8'; // Muted text
+              ctx.fillStyle = isOutgoing ? '#fff' : '#64748b'; // Highlight label if active
               ctx.fillText(link.label, midX, midY);
           }
       }
-  }, []);
+  }, [activeStepId]);
 
   return (
     <>
@@ -243,8 +307,8 @@ export const ProcedurePanel = () => {
           cooldownTicks={100}
           onEngineStop={() => {
               // Initial center if needed
-              if (autoFocus && activeNodeId) {
-                 const node = graphData.nodes.find(n => n.id === activeNodeId);
+              if (autoFocus && activeStepId) {
+                 const node = graphData.nodes.find(n => n.id === activeStepId);
                  if (node && fgRef.current) {
                      fgRef.current.centerAt(node.x, node.y, 1000);
                      fgRef.current.zoom(2.5, 1000);
@@ -272,6 +336,57 @@ export const ProcedurePanel = () => {
             <LegendItem color="#22c55e" label="Controller" />
             <LegendItem color="#06b6d4" label="Indicator" />
             <LegendItem color="#94a3b8" label="Feature" />
+        </div>
+
+        {/* Procedure Control Footer */}
+        <div style={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            left: 0,
+            background: 'rgba(15, 23, 42, 0.9)',
+            borderTop: '1px solid #334155',
+            padding: '10px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '10px',
+            zIndex: 20
+        }}>
+           <div style={{ flex: 1, display: 'flex', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', paddingLeft: 10 }}>
+                {stepOptions.type === 'VERIFY' && "Wait for Verify..."}
+                {stepOptions.type === 'DECISION' && "Wait for Decision..."}
+                {stepOptions.type === 'STEP' && "Proceed..."}
+                {stepOptions.type === 'END' && "Procedure End"}
+           </div>
+
+           {stepOptions.type === 'VERIFY' && (
+               <button className="dcs-btn" style={{ borderColor: '#eab308', color: '#eab308' }} onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
+                   CONFIRM CHECK
+               </button>
+           )}
+
+           {stepOptions.type === 'DECISION' && (
+               <>
+                   <button className="dcs-btn" style={{ borderColor: '#22c55e', color: '#22c55e' }} onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}>
+                       YES (TRUE)
+                   </button>
+                   <button className="dcs-btn" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}>
+                       NO (FALSE)
+                   </button>
+               </>
+           )}
+
+           {stepOptions.type === 'STEP' && (
+                <button className="dcs-btn" onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
+                    NEXT STEP
+                </button>
+           )}
+
+            {stepOptions.type === 'NONE' && (
+                <button className="dcs-btn" onClick={() => setActiveStepId('pc_st_01_01')}>
+                    START PROCEDURE
+                </button>
+            )}
         </div>
       </div>
     </>
