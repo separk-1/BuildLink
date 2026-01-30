@@ -143,10 +143,10 @@ const SchematicView = ({ state }: { state: any }) => {
 
 
       {/* Feedwater Return */}
-      {/* Condenser Bottom -> Pump */}
-      <path d="M 750 410 L 750 480 L 550 480" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      {/* Condenser Bottom -> Pump (Moved down to y=510 to create space for FW Flow Gauge) */}
+      <path d="M 750 410 L 750 510 L 550 510" fill="none" stroke={cPipeCold} strokeWidth="6" />
       {/* Pump -> Valves -> SG Bottom */}
-      <path d="M 550 480 L 360 480 L 360 410" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      <path d="M 550 510 L 360 510 L 360 410" fill="none" stroke={cPipeCold} strokeWidth="6" />
 
 
       {/* --------------------------------------------------------------------------
@@ -157,50 +157,50 @@ const SchematicView = ({ state }: { state: any }) => {
       <circle cx="245" cy="380" r="18" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
       <text x="245" y="440" textAnchor="middle" fill="#94a3b8" fontSize="12">
         RCP
-        <title>(Reactor Coolant Pump)</title>
+        <title>(Reactor Cooler Pump)</title>
       </text>
 
       {/* Main Steam Isolation Valve (MSIV) - Vertically above SG */}
       <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="(Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
 
-      {/* Steam Pressure - Right of MSIV, between MSIV and TSCV/Header */}
-      <DigitalGauge x={430} y={120} label="steam pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} fullName="(Steam Pressure)" />
+      {/* Steam Pressure - Between MSIV and TSCV/Header. X=440 to be in between. */}
+      <DigitalGauge x={440} y={40} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} fullName="(Steam Pressure)" />
 
       {/* Turbine Speed Control Valve - y=100 */}
       <Valve x={550} y={100} open={true} label="TSCV" fullName="(Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
-      {/* Turbine Load Control Valve - Moved to y=200 */}
+      {/* Turbine Load Control Valve - y=200 */}
       <Valve x={550} y={200} open={true} label="TLCV" fullName="(Turbine Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Bypass Control Valve - y=300 */}
       <Valve x={550} y={300} open={false} label="TBCV" fullName="(Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
-      {/* Feedwater Pump */}
-      <circle cx="500" cy="480" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="500" y="520" textAnchor="middle" fill="#94a3b8" fontSize="12">
-          Feedwater Pump
+      {/* Feedwater Pump - Moved to y=510 */}
+      <circle cx="500" cy="510" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="500" y="545" textAnchor="middle" fill="#94a3b8" fontSize="12">
+          FWP
           <title>(Feedwater Pump)</title>
       </text>
 
-      {/* Feedwater Isolation Valve */}
-      <Valve x={420} y={480} open={state.fwiv} label="FWIV" fullName="(Feedwater Isolation Valve)" vertical={false} labelY={-25} />
+      {/* Feedwater Isolation Valve - Moved to y=510 */}
+      <Valve x={420} y={510} open={state.fwiv} label="FWIV" fullName="(Feedwater Isolation Valve)" vertical={false} labelY={-25} />
 
-      {/* Feedwater Control Valve */}
-      <Valve x={360} y={450} open={state.fwcv_degree > 0} label="FWCV" fullName="(Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
+      {/* Feedwater Control Valve - Moved to y=470 to make room for gauge */}
+      <Valve x={360} y={470} open={state.fwcv_degree > 0} label="FWCV" fullName="(Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
 
 
       {/* --------------------------------------------------------------------------
           DIGITAL DISPLAYS (Instruments)
          -------------------------------------------------------------------------- */}
 
-      {/* Reactivity (Top Left) - Moved Above Reactor */}
-      <DigitalGauge x={50} y={120} label="reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" fullName="(Reactivity)" />
+      {/* Reactivity (Top Left) - Moved Above Reactor (x=50, w=140). Gauge Width=80/100. */}
+      <DigitalGauge x={40} y={130} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" width={90} fullName="(Reactivity)" />
 
       {/* Core Temp (Top Left) - Moved Above Reactor */}
-      <DigitalGauge x={160} y={120} label="core temp" value={fmt(state.display_core_t, 1)} unit="°C" width={100} fullName="(Core Temperature)" />
+      <DigitalGauge x={140} y={130} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" width={90} fullName="(Core Temperature)" />
 
       {/* Turbine Speed (Top Right) */}
-      <DigitalGauge x={700} y={20} label="turbine spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} fullName="(Turbine Speed)" />
+      <DigitalGauge x={700} y={20} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} fullName="(Turbine Speed)" />
 
       {/* SG Level (On SG) */}
       <DigitalGauge x={310} y={230} label="SG Level" value={fmt(state.display_sg_level, 1)} unit="%"
@@ -210,19 +210,14 @@ const SchematicView = ({ state }: { state: any }) => {
       />
 
       {/* Primary Flow (Between Reactor and RCP) */}
-      {/* Reactor Right X=190. RCP X=245. Midpoint ~217. */}
-      {/* Let's center it at 217. Width 80 (compact). */}
-      {/* y=340 to be above the pipe slightly but clear. */}
-      <DigitalGauge x={180} y={330} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} fullName="(Primary Flow)" />
+      {/* Reactor Right X=190. RCP X=245. Center ~217. */}
+      <DigitalGauge x={175} y={330} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} fullName="(Primary Flow)" />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
-      {/* SG Bottom y=410. FWCV y=450. */}
-      {/* The pipe is vertical at x=360. */}
-      {/* Let's place it to the Right of the pipe, vertically centered between SG and FWCV? */}
-      {/* 410 to 450 is 40px space. */}
-      {/* Let's place it at x=380, y=415? Overlaps pipe? No, pipe is at 360. */}
-      <DigitalGauge x={250} y={430} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
-          warn={state.fw_low_flow} width={90} compact={true} fullName="(Feedwater Flow)"
+      {/* SG Bottom y=410. FWCV y=470. Space 60px. Gauge Height 50. Center y=440. Top y=415. */}
+      {/* Placed centered on pipe (x=360), offset for width=80 -> x=320 */}
+      <DigitalGauge x={320} y={415} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+          warn={state.fw_low_flow} width={80} compact={true} fullName="(Feedwater Flow)"
       />
 
     </svg>
