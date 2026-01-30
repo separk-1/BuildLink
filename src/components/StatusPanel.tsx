@@ -110,6 +110,9 @@ const SchematicView = ({ state }: { state: any }) => {
       <path d="M 550 160 L 550 200 L 620 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
       <path d="M 550 200 L 550 240 L 620 240" fill="none" stroke="#f8fafc" strokeWidth="4" />
 
+      {/* Bypass Line to Condenser */}
+      <path d="M 620 240 L 680 240 L 680 350" fill="none" stroke="#f8fafc" strokeWidth="4" />
+
       {/* Feedwater Line: Condenser -> Pump -> Valves -> SG */}
       {/* Condenser Out */}
       <path d="M 700 400 L 700 430 L 600 430" fill="none" stroke={cPipeCold} strokeWidth="6" />
@@ -144,8 +147,8 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* PUMPS */}
       {/* RCP (Reactor Coolant Pump) */}
-      <circle cx="280" cy="380" r="15" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="280" y="415" textAnchor="middle" fill="#94a3b8" fontSize="10">RCP</text>
+      <circle cx="300" cy="380" r="15" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="300" y="415" textAnchor="middle" fill="#94a3b8" fontSize="10">RCP</text>
 
       {/* FW Pump */}
       <circle cx="580" cy="430" r="15" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
@@ -154,12 +157,12 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* VALVES */}
       {/* MSIV */}
-      <Valve x={480} y={100} open={state.msiv} label="MSIV" vertical={false} />
+      <Valve x={400} y={125} open={state.msiv} label="MSIV" vertical={true} />
 
       {/* Turbine Valves (Visual only, mapped to CVs?) */}
       <Valve x={620} y={160} open={true} label="Speed CV" scale={0.7} />
       <Valve x={620} y={200} open={true} label="Load CV" scale={0.7} />
-      <Valve x={620} y={240} open={false} label="Bypass" scale={0.7} />
+      <Valve x={620} y={240} open={false} label="Bypass" scale={0.7} vertical={false} />
 
       {/* FW Isolation */}
       <Valve x={480} y={430} open={state.fwiv} label="FW IV" vertical={false} />
@@ -179,10 +182,10 @@ const SchematicView = ({ state }: { state: any }) => {
       <DigitalGauge x={150} y={40} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" />
 
       {/* 3. Primary Flow (Near RCP Loop) */}
-      <DigitalGauge x={230} y={390} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" />
+      <DigitalGauge x={180} y={390} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" />
 
       {/* 4. SG Level (On SG) */}
-      <DigitalGauge x={320} y={200} label="SG Level" value={fmt(state.display_sg_level, 1)} unit="%"
+      <DigitalGauge x={320} y={200} label="Steam Gen Lvl" value={fmt(state.display_sg_level, 1)} unit="%"
           warn={state.sg_low_level || state.sg_high_level}
       />
 
@@ -190,7 +193,7 @@ const SchematicView = ({ state }: { state: any }) => {
       <DigitalGauge x={460} y={40} label="Steam Press" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" />
 
       {/* 6. FW Flow (Bottom Line) */}
-      <DigitalGauge x={530} y={370} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+      <DigitalGauge x={320} y={390} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
           warn={state.fw_low_flow}
       />
 

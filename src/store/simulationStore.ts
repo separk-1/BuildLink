@@ -386,6 +386,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     let target_fw_flow = avail_pump_head * new_fwcv_degree * flow_factor_fault;
     let new_fw_flow = s.fw_flow + (target_fw_flow - s.fw_flow) * 0.1;
+    new_fw_flow = Math.max(0, new_fw_flow);
 
     // 3. SG Logic
     let steam_out = (new_reactivity / 100) * 1500;

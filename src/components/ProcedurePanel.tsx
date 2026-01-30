@@ -112,9 +112,10 @@ export const ProcedurePanel = () => {
       });
 
       directLinks.forEach(l => {
-          set.add(l.label); // Track label for coloring logic if needed, but here we track Link Objects or IDs?
-          // Actually, we usually track Node IDs and Link IDs. Link Objects don't have IDs by default.
-          // We can track connected nodes.
+          // Exclude 'next' links from highlighting to avoid cluttering focus
+          if (l.label === 'next' || l.label === 'follow_next') return;
+
+          set.add(l.label);
           const targetId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target as string;
           set.add(targetId);
 
@@ -307,7 +308,7 @@ export const ProcedurePanel = () => {
       if (link.label && (isRelevant || globalScale > 0.8)) {
           const midX = (start.x! + end.x!) / 2;
           const midY = (start.y! + end.y!) / 2;
-          const fontSize = 14 / globalScale; // Increased font size
+          const fontSize = 16 / globalScale; // Increased font size to 16
 
           if (globalScale > 0.5) {
               ctx.font = `${fontSize}px Sans-Serif`;
