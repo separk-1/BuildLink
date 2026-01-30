@@ -17,6 +17,7 @@ interface CustomLink extends LinkObject {
   source: string | CustomNode;
   target: string | CustomNode;
   label: string;
+  class_num?: string; // Key for grouping related edges
 }
 
 // Simple CSV Parser
@@ -49,7 +50,7 @@ export const ProcedurePanel = () => {
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { activeStepId, setActiveStepId } = useSimulationStore();
+  const { activeStepId, setActiveStepId, stepHistory, goToPreviousStep } = useSimulationStore();
   const { entityCsv, relationshipCsv, loading } = useGraphData();
 
   // Resize Observer to handle panel resizing
@@ -87,7 +88,8 @@ export const ProcedurePanel = () => {
     const links: CustomLink[] = relationships.map((r: any) => ({
       source: r.src_id,
       target: r.dst_id,
-      label: r.edge_name
+      label: r.edge_name,
+      class_num: r.class_num // Capture grouping key
     })).filter((l: any) => {
       // Filter dangling links
       return nodes.find(n => n.id === l.source) && nodes.find(n => n.id === l.target);
@@ -95,6 +97,46 @@ export const ProcedurePanel = () => {
 
     setGraphData({ nodes, links });
   }, [entityCsv, relationshipCsv, loading]);
+
+  // Determine Highlighting Set (Memoized)
+  const highlightSet = useMemo(() => {
+      const set = new Set<string>();
+      if (!activeStepId) return set;
+
+      set.add(activeStepId);
+
+      // Find direct outgoing links
+      const directLinks = graphData.links.filter(l => {
+          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+          return sId === activeStepId;
+      });
+
+      directLinks.forEach(l => {
+          set.add(l.label); // Track label for coloring logic if needed, but here we track Link Objects or IDs?
+          // Actually, we usually track Node IDs and Link IDs. Link Objects don't have IDs by default.
+          // We can track connected nodes.
+          const targetId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target as string;
+          set.add(targetId);
+
+          // Check for extended connections via class_num
+          if (l.class_num) {
+              // Find other links with same class_num
+              const extendedLinks = graphData.links.filter(el => el.class_num === l.class_num);
+              extendedLinks.forEach(el => {
+                  const elTarget = typeof el.target === 'object' ? (el.target as CustomNode).id : el.target as string;
+                  const elSource = typeof el.source === 'object' ? (el.source as CustomNode).id : el.source as string;
+                  set.add(elTarget);
+                  set.add(elSource);
+                  // We implicitly want to highlight the link itself too.
+                  // We can't store link reference in a Set<string> easily unless we generate IDs for links.
+                  // Instead, paintLink will check if (source in Set && target in Set && class_num matches).
+              });
+          }
+      });
+
+      return set;
+  }, [activeStepId, graphData]);
+
 
   // Analyze Current Step Options (Memoized)
   const stepOptions = useMemo(() => {
@@ -112,13 +154,10 @@ export const ProcedurePanel = () => {
       const falseLink = links.find(l => l.label === 'false_then');
       const ifLink = links.find(l => l.label === 'if');
       const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
-
-      // Also check for generic edges if no specific ones found (fallback for linear flow)
       const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if'].includes(l.label));
 
       // 1. Decision (Check-If)
       if (trueLink || falseLink) {
-          // Helper to get target ID safely
           const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
           return {
               type: 'DECISION',
@@ -128,17 +167,9 @@ export const ProcedurePanel = () => {
           };
       }
 
-      // 2. Logic Node Decision (Sometimes 'if' leads to logic node which splits)
-      // Actually, in the CSV we saw: Step -> if -> LogicNode -> [Check -> Component]
-      // And Step -> true_then -> LogicNode
-      // So if we are at Step, we see true_then/false_then.
-      // My logic above handles that.
-
-      // 3. Verify
+      // 2. Verify
       if (verifyLink) {
            const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
-           // Usually verify steps also have a 'next' link to the subsequent step
-           // Or the user confirms and we just move to the 'next' link target
            return {
                type: 'VERIFY',
                nextNode: getTarget(nextLink), // Proceed to next step after verification
@@ -146,7 +177,7 @@ export const ProcedurePanel = () => {
            };
       }
 
-      // 4. Standard Next
+      // 3. Standard Next
       if (nextLink || genericLink) {
           const link = nextLink || genericLink;
           const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
@@ -160,33 +191,47 @@ export const ProcedurePanel = () => {
 
   }, [activeStepId, graphData]);
 
-  // Auto Focus Logic
+  // Auto Focus Logic (Zoom to Highlighted Chain)
   useEffect(() => {
-    if (!autoFocus || !activeStepId || !fgRef.current) return;
+    if (!autoFocus || !activeStepId || !fgRef.current || highlightSet.size === 0) return;
 
-    // Small delay to allow graph to settle/render before focusing
+    // Filter nodes that are in the highlight set
+    const relevantNodes = graphData.nodes.filter(n => highlightSet.has(n.id));
+
+    if (relevantNodes.length === 0) return;
+
+    // Small delay to allow graph to settle
     const timer = setTimeout(() => {
-      const node = graphData.nodes.find(n => n.id === activeStepId);
-      if (node && typeof node.x === 'number' && typeof node.y === 'number') {
-        fgRef.current?.centerAt(node.x, node.y, 1000);
-        fgRef.current?.zoom(2.5, 1000);
-      }
-    }, 100);
+        // Calculate bounding box or just use zoomToFit with filter
+        // ForceGraph2D's zoomToFit doesn't accept a filter directly, sadly.
+        // It fits *all* nodes.
+        // So we must use 'zoomToFit' with a coordinate calculation?
+        // Actually, many versions of force-graph allow passing (padding, duration, node => boolean).
+        // Let's check typical API. Standard API is zoomToFit(duration, padding, nodeFilter).
+        // If nodeFilter is supported:
+        fgRef.current.zoomToFit(1000, 100, (node: CustomNode) => highlightSet.has(node.id));
+    }, 200);
 
     return () => clearTimeout(timer);
-  }, [activeStepId, autoFocus, graphData]);
+  }, [activeStepId, autoFocus, highlightSet, graphData]);
 
 
   const paintNode = useCallback((node: CustomNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isActive = node.id === activeStepId;
+    const isHighlighted = highlightSet.has(node.id);
     const label = node.name;
     const fontSize = 12 / globalScale;
 
-    // 1. Draw "Glow" for active node
+    // Opacity Logic
+    const opacity = isHighlighted ? 1 : 0.2;
+    ctx.globalAlpha = opacity;
+
+    // 1. Draw Node
     if (isActive) {
+      // Glow
       ctx.beginPath();
       ctx.arc(node.x!, node.y!, 12, 0, 2 * Math.PI, false);
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Blue Glow
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
       ctx.fill();
 
       ctx.beginPath();
@@ -194,55 +239,75 @@ export const ProcedurePanel = () => {
       ctx.fillStyle = '#fff';
       ctx.fill();
     } else {
-        // Standard node circle
+        // Standard or Highlighted Target
         ctx.beginPath();
         ctx.arc(node.x!, node.y!, 5, 0, 2 * Math.PI, false);
         ctx.fillStyle = getNodeColor(node.type);
         ctx.fill();
     }
 
-    // 2. Draw Label (LOD Logic)
-    // Always show label for Active node
-    // For others, only show if zoomed in (globalScale > 1.5)
-    if (isActive || globalScale > 1.2) {
+    // 2. Draw Label
+    // Show label if Active OR Highlighted (Zoomed in) OR High Zoom
+    if (isHighlighted || globalScale > 1.2) {
       ctx.font = `${fontSize}px Sans-Serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = isActive ? '#fff' : 'rgba(255, 255, 255, 0.8)';
-      // Offset text below node
+      ctx.fillStyle = isActive ? '#fff' : `rgba(255, 255, 255, ${opacity})`;
       ctx.fillText(label, node.x!, node.y! + 8 + fontSize);
     }
-  }, [activeStepId]);
+
+    // Reset Opacity
+    ctx.globalAlpha = 1;
+
+  }, [activeStepId, highlightSet]);
 
   const paintLink = useCallback((link: CustomLink, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      // 1. Draw Line
       const start = link.source as CustomNode;
       const end = link.target as CustomNode;
-
       if (typeof start !== 'object' || typeof end !== 'object') return;
 
       const sourceId = start.id;
-      const isOutgoing = sourceId === activeStepId;
+      const targetId = end.id;
+
+      // Check if this link is part of the "Active Chain"
+      // It is part of the chain if BOTH source and target are in highlightSet
+      // AND (it's a direct link from activeStep OR it shares the class_num of a direct link)
+
+      // Simple approximation: If both nodes are in highlightSet, highlight the link?
+      // No, that might highlight cross-links between highlighted nodes that aren't relevant.
+      // But for tree-like procedures, it's probably fine.
+      // Better: Check if one of them is the Active Step, OR if they share a class_num with the active step's outgoing link.
+
+      const isDirect = sourceId === activeStepId && highlightSet.has(targetId);
+
+      // Check class_num relevance
+      // We need to know the class_num of the *active outgoing link*
+      // This is expensive to calculate inside paintLink every frame.
+      // Optimization: We rely on highlightSet containing only the relevant nodes.
+      // If both source and target are in highlightSet, we assume the link is relevant.
+      const isRelevant = highlightSet.has(sourceId) && highlightSet.has(targetId);
 
       let strokeStyle = '#475569';
       let lineWidth = 1 / globalScale;
+      let opacity = 0.1; // Default dim
 
-      // Highlight Logic
-      if (isOutgoing) {
+      if (isRelevant) {
+          opacity = 1;
           if (['verify', 'if'].includes(link.label)) {
-              strokeStyle = '#eab308'; // Yellow for Logic/Verify action
+              strokeStyle = '#eab308';
               lineWidth = 2 / globalScale;
           } else if (['true_then', 'false_then'].includes(link.label)) {
-              strokeStyle = '#eab308'; // Highlight branch paths too
+              strokeStyle = '#eab308';
               lineWidth = 2 / globalScale;
           } else if (link.label === 'next' || link.label.startsWith('follow')) {
-               strokeStyle = '#3b82f6'; // Blue for standard path
+               strokeStyle = '#3b82f6';
+          } else {
+               // Default highlight for value connections (e.g., 'into', 'set')
+               strokeStyle = '#3b82f6';
           }
-      } else {
-          // Passive links
-           if (link.label === 'next') strokeStyle = '#334155';
       }
 
+      ctx.globalAlpha = opacity;
       ctx.beginPath();
       ctx.moveTo(start.x!, start.y!);
       ctx.lineTo(end.x!, end.y!);
@@ -250,22 +315,23 @@ export const ProcedurePanel = () => {
       ctx.lineWidth = lineWidth;
       ctx.stroke();
 
-      // 2. Draw Label
-      if (link.label) {
+      // Label
+      if (link.label && (isRelevant || globalScale > 0.8)) {
           const midX = (start.x! + end.x!) / 2;
           const midY = (start.y! + end.y!) / 2;
-          const fontSize = 10 / globalScale; // Scaled font size
+          const fontSize = 10 / globalScale;
 
-          // Optional: Only show if zoomed in
           if (globalScale > 0.5) {
               ctx.font = `${fontSize}px Sans-Serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillStyle = isOutgoing ? '#fff' : '#64748b'; // Highlight label if active
+              ctx.fillStyle = isRelevant ? '#fff' : 'rgba(100, 116, 139, 0.5)';
               ctx.fillText(link.label, midX, midY);
           }
       }
-  }, [activeStepId]);
+      ctx.globalAlpha = 1;
+
+  }, [activeStepId, highlightSet]);
 
   return (
     <>
@@ -302,17 +368,13 @@ export const ProcedurePanel = () => {
               }
               return node.name;
           }}
-          // Physics Configuration to reduce clutter
+          // Physics Configuration
           d3VelocityDecay={0.2}
           cooldownTicks={100}
           onEngineStop={() => {
-              // Initial center if needed
-              if (autoFocus && activeStepId) {
-                 const node = graphData.nodes.find(n => n.id === activeStepId);
-                 if (node && fgRef.current) {
-                     fgRef.current.centerAt(node.x, node.y, 1000);
-                     fgRef.current.zoom(2.5, 1000);
-                 }
+              // Initial focus
+              if (autoFocus && activeStepId && highlightSet.size > 0 && fgRef.current) {
+                 fgRef.current.zoomToFit(1000, 100, (n: CustomNode) => highlightSet.has(n.id));
               }
           }}
           // Customize Links
@@ -321,16 +383,16 @@ export const ProcedurePanel = () => {
           linkDirectionalParticles={1}
           linkDirectionalParticleWidth={2}
           onNodeDragEnd={node => {
-            setAutoFocus(false); // Disable auto-focus if user manually moves things
+            setAutoFocus(false);
             if (node.x && node.y) {
-                node.fx = node.x; // Fix position after drag
+                node.fx = node.x;
                 node.fy = node.y;
             }
           }}
         />
 
         {/* Legend Overlay */}
-        <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none', zIndex: 10 }}>
+        <div style={{ position: 'absolute', bottom: 60, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none', zIndex: 10 }}>
             <LegendItem color="#3b82f6" label="Step" />
             <LegendItem color="#eab308" label="Logic" />
             <LegendItem color="#22c55e" label="Controller" />
@@ -348,45 +410,56 @@ export const ProcedurePanel = () => {
             borderTop: '1px solid #334155',
             padding: '10px',
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between', // Changed to space-between for Back button
             gap: '10px',
             zIndex: 20
         }}>
-           <div style={{ flex: 1, display: 'flex', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', paddingLeft: 10 }}>
-                {stepOptions.type === 'VERIFY' && "Wait for Verify..."}
-                {stepOptions.type === 'DECISION' && "Wait for Decision..."}
-                {stepOptions.type === 'STEP' && "Proceed..."}
-                {stepOptions.type === 'END' && "Procedure End"}
+           {/* Back Button */}
+           <div>
+               {stepHistory.length > 0 && (
+                   <button className="dcs-btn" onClick={goToPreviousStep} style={{ borderColor: '#64748b', color: '#94a3b8' }}>
+                       PREVIOUS STEP
+                   </button>
+               )}
            </div>
 
-           {stepOptions.type === 'VERIFY' && (
-               <button className="dcs-btn" style={{ borderColor: '#eab308', color: '#eab308' }} onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
-                   CONFIRM CHECK
-               </button>
-           )}
+           <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', color: '#94a3b8', fontSize: '0.8rem', marginRight: 10 }}>
+                        {stepOptions.type === 'VERIFY' && "Wait for Verify..."}
+                        {stepOptions.type === 'DECISION' && "Wait for Decision..."}
+                        {stepOptions.type === 'STEP' && "Proceed..."}
+                        {stepOptions.type === 'END' && "Procedure End"}
+                </div>
 
-           {stepOptions.type === 'DECISION' && (
-               <>
-                   <button className="dcs-btn" style={{ borderColor: '#22c55e', color: '#22c55e' }} onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}>
-                       YES (TRUE)
-                   </button>
-                   <button className="dcs-btn" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}>
-                       NO (FALSE)
-                   </button>
-               </>
-           )}
+                {stepOptions.type === 'VERIFY' && (
+                    <button className="dcs-btn" style={{ borderColor: '#eab308', color: '#eab308' }} onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
+                        CONFIRM CHECK
+                    </button>
+                )}
 
-           {stepOptions.type === 'STEP' && (
-                <button className="dcs-btn" onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
-                    NEXT STEP
-                </button>
-           )}
+                {stepOptions.type === 'DECISION' && (
+                    <>
+                        <button className="dcs-btn" style={{ borderColor: '#22c55e', color: '#22c55e' }} onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}>
+                            YES (TRUE)
+                        </button>
+                        <button className="dcs-btn" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}>
+                            NO (FALSE)
+                        </button>
+                    </>
+                )}
 
-            {stepOptions.type === 'NONE' && (
-                <button className="dcs-btn" onClick={() => setActiveStepId('pc_st_01_01')}>
-                    START PROCEDURE
-                </button>
-            )}
+                {stepOptions.type === 'STEP' && (
+                        <button className="dcs-btn" onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
+                            NEXT STEP
+                        </button>
+                )}
+
+                    {stepOptions.type === 'NONE' && (
+                        <button className="dcs-btn" onClick={() => setActiveStepId('pc_st_01_01')}>
+                            START PROCEDURE
+                        </button>
+                    )}
+            </div>
         </div>
       </div>
     </>

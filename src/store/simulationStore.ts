@@ -93,7 +93,9 @@ interface SimulationState {
 
   // --- Procedures ---
   activeStepId: string | null;
+  stepHistory: string[];
   setActiveStepId: (id: string | null) => void;
+  goToPreviousStep: () => void;
 
   // --- Actions ---
   setScenarioPreset: (preset: ScenarioPreset) => void;
@@ -205,11 +207,25 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   scenarioPreset: 'cv',
   trainingMode: true,
   activeStepId: 'pc_st_01_01', // Start at Step 1.1
+  stepHistory: [],
 
-  setActiveStepId: (id) => set({ activeStepId: id }),
-  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01' }),
+  setActiveStepId: (id) => set((state) => {
+      // Don't push duplicates if clicking same step (unlikely but safe)
+      // or if jumping back (handled by goToPreviousStep)
+      const history = state.activeStepId ? [...state.stepHistory, state.activeStepId] : state.stepHistory;
+      return { activeStepId: id, stepHistory: history };
+  }),
+
+  goToPreviousStep: () => set((state) => {
+      if (state.stepHistory.length === 0) return {};
+      const newHistory = [...state.stepHistory];
+      const prevStep = newHistory.pop();
+      return { activeStepId: prevStep || null, stepHistory: newHistory };
+  }),
+
+  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] }),
   toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),
-  resetSimulation: () => set((state) => ({ ...INITIAL_STATE, scenarioPreset: state.scenarioPreset, trainingMode: state.trainingMode, activeStepId: 'pc_st_01_01' })),
+  resetSimulation: () => set((state) => ({ ...INITIAL_STATE, scenarioPreset: state.scenarioPreset, trainingMode: state.trainingMode, activeStepId: 'pc_st_01_01', stepHistory: [] })),
 
   // --- Actions ---
   toggleTripReactor: () => {
