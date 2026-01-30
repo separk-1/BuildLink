@@ -34,7 +34,7 @@ The system analyzes the outgoing edges of the current active step in the Knowled
 ### 3. Action / Standard Step (`STEP`)
 **Condition:** The current step has a simple `next` or generic edge (e.g., `follow_next_steps`).
 **Behavior:**
-*   The `next` edge is highlighted in **Blue**.
+*   The `next` edge is highlighted in **Yellow** (unified color).
 *   A **"NEXT STEP"** button appears.
 *   **Operator Action:** The operator performs the procedure action (e.g., "Trip Reactor") and clicks "NEXT STEP".
 *   **Result:** The system advances to the next step.

@@ -293,18 +293,8 @@ export const ProcedurePanel = () => {
 
       if (isRelevant) {
           opacity = 1;
-          if (['verify', 'if'].includes(link.label)) {
-              strokeStyle = '#eab308';
-              lineWidth = 2 / globalScale;
-          } else if (['true_then', 'false_then'].includes(link.label)) {
-              strokeStyle = '#eab308';
-              lineWidth = 2 / globalScale;
-          } else if (link.label === 'next' || link.label.startsWith('follow')) {
-               strokeStyle = '#3b82f6';
-          } else {
-               // Default highlight for value connections (e.g., 'into', 'set')
-               strokeStyle = '#3b82f6';
-          }
+          strokeStyle = '#eab308'; // Unify all active highlights to Yellow
+          lineWidth = 2 / globalScale;
       }
 
       ctx.globalAlpha = opacity;

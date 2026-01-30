@@ -19,6 +19,28 @@ export const ControlPanel = () => {
             {formatTime(s.time)}
         </span>
       </div>
+
+      {/* Scenario Selector - Top Position */}
+      {!s.trainingMode && (
+        <div style={{ padding: '0 12px 8px 12px' }}>
+            <select
+                className="dcs-select"
+                style={{ width: '100%' }}
+                value={s.scenarioPreset}
+                onChange={(e) => {
+                    if (window.confirm("Changing scenario will reset the simulation. Continue?")) {
+                        s.setScenarioPreset(e.target.value as ScenarioPreset);
+                    }
+                }}
+                title="Scenario Preset"
+            >
+                <option value="cv">Scenario A: CV Issue</option>
+                <option value="pump">Scenario B: Pump Issue</option>
+                <option value="hard">Scenario C: Hard Fail</option>
+            </select>
+        </div>
+      )}
+
       <div className="panel-content" style={{ gap: '12px' }}>
 
         {/* Reactor Column */}
@@ -85,24 +107,6 @@ export const ControlPanel = () => {
              >
                 TRN: {s.trainingMode ? 'ON' : 'OFF'}
              </button>
-
-            {/* Scenario Selector */}
-            {!s.trainingMode && (
-                <select
-                    className="dcs-select"
-                    value={s.scenarioPreset}
-                    onChange={(e) => {
-                        if (window.confirm("Changing scenario will reset the simulation. Continue?")) {
-                            s.setScenarioPreset(e.target.value as ScenarioPreset);
-                        }
-                    }}
-                    title="Scenario Preset"
-                >
-                    <option value="cv">A: CV Issue</option>
-                    <option value="pump">B: Pump Issue</option>
-                    <option value="hard">C: Hard Fail</option>
-                </select>
-            )}
 
             <button
                 className="dcs-btn"
