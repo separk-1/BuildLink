@@ -165,7 +165,7 @@ const SchematicView = ({ state }: { state: any }) => {
       <Valve x={550} y={200} open={true} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Bypass Control Valve - y=300 */}
-      <Valve x={550} y={300} open={false} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={300} open={state.turbine_bypass_cv > 0.05} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Feedwater Pump - Shifted Right to cx=540 (was 500) */}
       <circle cx="540" cy="530" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
