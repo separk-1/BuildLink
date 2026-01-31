@@ -1,79 +1,118 @@
-# ☢️ Web-based NPP Simulator (Prototype)
+# BuildLink
 
-> **"Experience nuclear power plant accident response directly in your web browser."**
+**BuildLink — Research prototype submitted to the Nemetschek Innovation Award · CMU CEE**
+Contact: [seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu), [joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu)
 
-This project is a research prototype designed to simulate a **Loss of Feedwater (LOFW)** scenario in a nuclear power plant. It provides an accessible, web-based platform for testing emergency operating procedures (EOPs) and analyzing operator decision-making processes without requiring complex software installations.
+BuildLink is a research prototype that provides **context-aware, queryable operational support** for complex infrastructure systems.
+It integrates **graph-based procedural knowledge**, **AI-powered conversational assistance**, and an **interactive control-room-style interface**.
 
----
-
-## 🎯 Project Philosophy: "Visualizing the Procedure, Not Automating It"
-
-The core innovation of this simulator lies in its **Knowledge Graph-based Procedure Visualization**. Unlike traditional systems that might automate procedure steps based on plant state, this system acts as a **dynamic map** for the operator.
-
-### Design Principles
-*   **Node (What):** Represents the entity involved (Valve, Pump, Gauge).
-*   **Edge (How):** Represents the procedural action or logic (Verify, Check, Next).
-*   **Highlight (Where):** Visualizes the **currently active procedural path**.
-
-### Why Operator-Driven?
-The goal is to visualize **what the operator should do**, not just **what the plant is doing**.
-*   **Verify Steps:** The system does not auto-advance when a value is met. The operator must *check* the value and explicitly *confirm* the verification. This mimics the "stop-and-verify" safety protocol.
-*   **Check-If (Decision) Steps:** The system highlights the decision point but does not auto-branch. The operator must *evaluate* the condition and *choose* the path (True/False). This preserves the critical role of human judgment in emergency response.
+This repository includes a **live web-based demonstrator**, validated using a **nuclear power plant Loss of Feedwater (LOFW)** scenario as a representative safety-critical use case.
 
 ---
 
-## 🕹️ User Guide
+## 🔗 Links
 
-When the simulator starts, an accident is **automatically triggered after 10 seconds**. Stay calm and follow the procedure.
-
-### Screen Layout (4-Panel View)
-
-| Location         | Panel Name        | Role                                                                                                                         |
-| :--------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| **Top Left**     | **Status Panel**  | The **"Plant State"**. Displays real-time data (Level, Pressure, Flow) and alarms.                                           |
-| **Bottom Left**  | **Control Panel** | The **"Cockpit"**. Operate valves, pumps, and trip systems. Toggle Incident View and Scenarios here.                         |
-| **Top Right**    | **AI Advisor**    | The **"Co-Pilot"**. A RAG-based AI assistant that answers questions about plant status and procedures.                       |
-| **Bottom Right** | **Procedures**    | The **"Map"**. A Force-Directed Graph showing the EOP. Follow the highlighted path and use the buttons to navigate.          |
-
-### Scenario Presets
-
-The Scenario Selector is located in the **Footer** of the Control Panel.
-
-*   **Scenario A (CV Issue):** Feedwater Control Valve drift. Fix by switching to Manual.
-*   **Scenario B (Pump Issue):** Feedwater Pump trip. Fix by restarting the pump.
-*   **Scenario C (Hard Fail):** Total Loss of Feedwater. Requires Emergency Reactor Trip (Feed & Bleed).
-
-> **Note:** "Training Mode" adds stochastic noise and randomness to the simulation to test robustness.
+* **Live Demonstrator:** [https://buildlink-drab.vercel.app/](https://buildlink-drab.vercel.app/)
+* **Source Code:** [https://github.com/separk-1/BuildLink](https://github.com/separk-1/BuildLink)
 
 ---
 
-## 🛠️ Technical Architecture
+## 🧠 What BuildLink Does
 
-This project leverages a modern web stack to deliver high-performance simulation and visualization.
+BuildLink supports human operators during abnormal or emergency situations by:
 
-*   **Frontend:** React 19 (Vite), TypeScript
-*   **Styling:** Tailwind CSS v4
-*   **State Management:** Zustand (Physics Engine & Store)
-*   **Visualization:** `react-force-graph-2d` (Canvas-based rendering)
-*   **AI Integration:** Google Gemini API with GraphRAG context
+* Visualizing operational procedures as **knowledge graphs**
+* Preserving **operator-driven decision-making** (no automatic branching)
+* Providing **context-aware AI assistance** grounded in procedures and system state
+* Enabling intuitive navigation of procedures, incidents, and system conditions
 
-### Installation & Run
+The system focuses on **making procedures visible and interpretable**, rather than automating operator actions.
+
+---
+
+## 🧪 Live Demonstrator: Nuclear Power Plant LOFW Scenario
+
+The current prototype demonstrates BuildLink using a simulated **pressurized water reactor (PWR)** control environment.
+
+### Supported Scenarios
+
+* **Scenario A (cv):** Feedwater control valve malfunction
+* **Scenario B (pump):** Feedwater pump trip
+* **Scenario C (hard):** Total loss of feedwater requiring emergency shutdown
+
+### Training Mode
+
+* **Training Mode ON (default):**
+
+  * Scenario C is enforced
+  * Stochastic noise is added to system behavior
+* **Training Mode OFF:**
+
+  * Users may manually select Scenario A / B / C
+
+---
+
+## 🖥️ System Overview
+
+The interface consists of four coordinated panels:
+
+* **Status Panel:** Real-time system state, indicators, and alarms
+* **Control Panel:** Operator actions, scenario selection, and mode control
+* **AI Advisor:** RAG-based conversational assistant
+* **Procedure Panel:** Graph-based visualization of operational procedures
+
+---
+
+## 🛠️ Technology Stack
+
+* **Frontend:** React (Vite), TypeScript
+* **State Management:** Zustand (physics + procedure logic)
+* **Visualization:** react-force-graph-2d
+* **AI:** Retrieval-Augmented Generation (RAG)
+* **Backend:** FastAPI (Python)
+
+---
+
+## 🚀 Local Development
+
+### Frontend
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Start development server (http://localhost:5173)
 npm run dev
-
-# 3. Build for production
-npm run build
 ```
+
+Frontend runs at:
+
+```
+http://localhost:5173
+```
+
+### Backend (required for AI features)
+
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
+
+Backend runs at:
+
+```
+http://localhost:8000
+```
+
+> The frontend expects the backend server to be running locally.
 
 ---
 
-## 📚 Documentation
-For deeper insights into the system logic:
-*   [`STEP_LOGIC.md`](./STEP_LOGIC.md): Detailed explanation of the Operator-Driven procedure flow.
-*   [`SCENARIO_LOGIC.md`](./SCENARIO_LOGIC.md): Physics equations and scenario definitions.
-*   [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md): High-level architectural diagrams and component breakdown.
+## 📄 Notes
+
+* This repository is intended as a **research prototype and live demonstrator**.
+* Detailed problem formulation, technical contributions, and evaluation are described in the accompanying report submitted to the Nemetschek Innovation Award.
+
+---
+
+## 📩 Contact
+
+**Seongeun Park**, **Joonsun Hwang**
+Carnegie Mellon University, Civil & Environmental Engineering
+Email: [seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu), [joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu)
