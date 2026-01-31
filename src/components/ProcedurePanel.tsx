@@ -72,6 +72,7 @@ const getProcedureDescription = (nodeId: string, map: Map<string, string>) => {
 
 // Color mapping based on node type
 const getNodeColor = (type: string) => {
+  if (type.startsWith('LER_')) return '#f87171'; // Red (Incident)
   switch (type) {
     case 'PC_ST': return '#3b82f6'; // Blue (Step)
     case 'PC_LO': return '#eab308'; // Yellow (Logic)
@@ -85,6 +86,7 @@ export const ProcedurePanel = () => {
   const fgRef = useRef<any>(undefined);
   // const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
   const [autoFocus, setAutoFocus] = useState(true);
+  const [incidentView, setIncidentView] = useState(false);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
 
   // Tooltip & Highlight State
@@ -95,7 +97,7 @@ export const ProcedurePanel = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { activeStepId, setActiveStepId, stepHistory, goToPreviousStep } = useSimulationStore();
-  const { entityCsv, relationshipCsv, procedureCsv, loading } = useGraphData();
+  const { entityCsv, relationshipCsv, procedureCsv, lerEntityCsv, lerRelationshipCsv, loading } = useGraphData();
 
   // Resize Observer to handle panel resizing
   useEffect(() => {
@@ -122,8 +124,15 @@ export const ProcedurePanel = () => {
   const graphData = useMemo(() => {
     if (loading || !entityCsv || !relationshipCsv) return { nodes: [], links: [] };
 
-    const entities = parseCSV(entityCsv);
-    const relationships = parseCSV(relationshipCsv);
+    let entities = parseCSV(entityCsv);
+    let relationships = parseCSV(relationshipCsv);
+
+    if (incidentView && lerEntityCsv && lerRelationshipCsv) {
+        const lerEntities = parseCSV(lerEntityCsv);
+        const lerRelationships = parseCSV(lerRelationshipCsv);
+        entities = [...entities, ...lerEntities];
+        relationships = [...relationships, ...lerRelationships];
+    }
 
     const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
@@ -144,7 +153,7 @@ export const ProcedurePanel = () => {
     });
 
     return { nodes, links };
-  }, [entityCsv, relationshipCsv, loading]);
+  }, [entityCsv, relationshipCsv, lerEntityCsv, lerRelationshipCsv, loading, incidentView]);
 
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {
@@ -504,6 +513,13 @@ export const ProcedurePanel = () => {
             )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
+             <button
+                className="dcs-btn"
+                onClick={() => setIncidentView(!incidentView)}
+                style={{ padding: '2px 8px', fontSize: '0.6rem', background: incidentView ? '#ef4444' : 'transparent', borderColor: incidentView ? '#ef4444' : '' }}
+            >
+                INCIDENT VIEW: {incidentView ? 'ON' : 'OFF'}
+            </button>
             <button
                 className="dcs-btn"
                 onClick={() => setAutoFocus(!autoFocus)}
@@ -595,6 +611,7 @@ export const ProcedurePanel = () => {
             <LegendItem color="#eab308" label="Logic" />
             <LegendItem color="#22c55e" label="Controller" />
             <LegendItem color="#06b6d4" label="Indicator" />
+            <LegendItem color="#f87171" label="Incident" />
             <LegendItem color="#94a3b8" label="Feature" />
         </div>
 
