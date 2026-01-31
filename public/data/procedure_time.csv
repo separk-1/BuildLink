@@ -1,5 +1,5 @@
 after_action,scenario,status,Reactivity,core_t,pri_flow,fw_flow,fwcv_degree,sg_level,steam_press,turbine_speed_cv,turbine_load_cv,turbine_bypass_cv,turbine_rpm,fw_low_flow,fw_pump_trip,core_temp_high,trip_turbine,turbine_speed_cv,turbine_load_cv,all_rods_down,safety_injection_engaged,reactor_coolant_pump_trip
-0,all,,98.3,370,1101,1054,0.5,50,114.4,1,1,1,1800,FALSE,FALSE,FALSE,FALSE,,,FALSE,FALSE,FALSE
+initial_value,all,,98.3,370,1101,1054,0.5,50,114.4,1,1,1,1800,FALSE,FALSE,FALSE,FALSE,,,FALSE,FALSE,FALSE
 10sec,A,,,385,,600,,47,105,,,,1720,TRUE,,,,,,,,
 10sec,B,,,385,,600,,47,105,,,,1720,TRUE,TRUE,,,,,,,
 10sec,C,,,420,,200,,44,95,,,,1600,TRUE,,TRUE,,,,,,

@@ -184,27 +184,27 @@ const INITIAL_STATE = {
   simulationEnded: false,
 
   // Reactor
-  reactivity: 100.0,
-  display_reactivity: 100.0,
+  reactivity: 98.3,
+  display_reactivity: 98.3,
 
-  core_t: 310.0,
-  display_core_t: 310.0,
+  core_t: 370.0,
+  display_core_t: 370.0,
 
-  pri_flow: 45000,
-  display_pri_flow: 45000,
+  pri_flow: 1101,
+  display_pri_flow: 1101,
 
   // SG
   fw_flow: 1500,
   display_fw_flow: 1500,
 
-  fwcv_degree: 0.8,
-  fwcv_continuous: 0.8,
+  fwcv_degree: 0.5,
+  fwcv_continuous: 0.5,
 
   sg_level: 50.0,
   display_sg_level: 50.0,
 
-  steam_press: 60.0,
-  display_steam_press: 60.0,
+  steam_press: 114.4,
+  display_steam_press: 114.4,
 
   // Turbine
   turbine_speed_cv: 1.0,
