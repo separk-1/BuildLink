@@ -8,6 +8,17 @@ The simulator uses a **Hybrid Physics/Logic Engine**.
 1.  **Physics Loop (10Hz)**: Handles continuous dynamics (e.g., flow = pump * valve).
 2.  **Procedure Rules Engine**: Overrides physics variables based on specific procedure steps defined in a CSV file.
 
+## Variables & Units
+
+| Variable | Unit | Initial Value | Notes |
+| :--- | :--- | :--- | :--- |
+| `Reactivity` | % | 100 | Reactor Power |
+| `core_t` | °C | 370 | Core Temperature. **High Alarm > 400°C** |
+| `pri_flow` | m/s | 1101 | Primary Coolant Flow |
+| `fw_flow` | m/s | 1054 | Feedwater Flow |
+| `fwcv_degree`| % (0-1)| 50% (0.5)| Feedwater Control Valve Position |
+| `sg_level` | % | 50 | Steam Generator Level |
+
 ## Data Source: `procedure_time.csv`
 
 The core logic is defined in `public/data/procedure_time.csv`. This file maps "Procedure Steps" to "State Changes".

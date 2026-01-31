@@ -706,7 +706,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // Primary
     updates.rx_over_limit = final_reactivity > 102;
-    updates.core_temp_high = final_core_t > 330;
+    updates.core_temp_high = final_core_t > 400; // Updated Threshold
     updates.high_temp_high_rx_trip = updates.core_temp_high;
     updates.core_temp_low = final_core_t < 270 && final_reactivity > 10;
     updates.low_primary_coolant = final_pri_flow < 40000;

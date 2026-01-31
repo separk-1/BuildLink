@@ -316,33 +316,34 @@ const Valve = ({ x, y, open, label, vertical = true, scale = 1, labelY, labelOff
                 So Stem is ALWAYS Up.
             */}
 
-            {/* Stem */}
-            <line x1="0" y1="0" x2="0" y2="-15" stroke={cBody} strokeWidth="2" />
-
-            {/* T-Handle - Fixed */}
-            {/* Drawn as a horizontal bar at top of stem. */}
-            {/* Since Stem is always 'Up' (0, -15), the Handle should be a horizontal line at -15. */}
-            {/* This matches the image for Horizontal Pipe. */}
-            {/* For Vertical Pipe, the Bowtie is rotated. The Stem is still Up. So Handle is still Horizontal.
-                This means for a vertical pipe, the stem sticks out 'sideways' (visually Up is sideways to vertical pipe).
-                Wait, if pipe is vertical (running Y axis), 'Up' (negative Y) is along the pipe? No, 'Up' is screen coordinates.
-                If pipe is vertical (e.g. MSIV), we want the stem to stick out to the side?
-                Currently `Valve` is placed at (x,y).
-                If Vertical=true, we expect flow in Y.
-                The stem drawn at (0,0) to (0,-15) goes Up.
-                Ideally for vertical pipe, stem sticks Left or Right.
-                BUT existing code didn't rotate the stem. It only rotated the Bowtie.
-                So Stem was always pointing Up.
-                The Handle bar (x1=-8, x2=8) is Horizontal.
-                So T-Handle is formed.
-                It stays fixed.
-                This satisfies "Handle fixed".
-                It satisfies "Perpendicular to hourglass" if hourglass is vertical, handle is horizontal.
+            {/* Stem - Rotates with Valve Group? No, we need logic for Vertical Valves */}
+            {/* If Vertical, Stem should point Left or Right?
+                Usually for vertical pipe, stem is horizontal.
+                Existing code: Stem is always Up (0 to -15).
+                If Vertical=true, Bowtie is rotated 90. Flow is Y.
+                Stem (Up) is parallel to Flow (Y). This is WRONG.
+                Stem should be perpendicular to Flow.
+                So if Vertical=true, Stem should be X axis?
+                Let's fix Stem direction based on 'vertical' prop.
             */}
 
-            {/* Handle Bar (Rounded Rect or Thick Line) */}
-            {/* Image shows a rounded rectangle. */}
-            <rect x="-10" y="-19" width="20" height="4" rx="2" fill={cBody} stroke="none" />
+            {/* Stem */}
+            {vertical ? (
+               // Vertical Pipe -> Horizontal Stem (e.g. to Right)
+               <line x1="0" y1="0" x2="15" y2="0" stroke={cBody} strokeWidth="2" />
+            ) : (
+               // Horizontal Pipe -> Vertical Stem (Up)
+               <line x1="0" y1="0" x2="0" y2="-15" stroke={cBody} strokeWidth="2" />
+            )}
+
+            {/* T-Handle - Perpendicular to Stem */}
+            {vertical ? (
+               // Stem is Horizontal (Right), Handle is Vertical
+               <rect x="13" y="-10" width="4" height="20" rx="2" fill={cBody} stroke="none" />
+            ) : (
+               // Stem is Vertical (Up), Handle is Horizontal
+               <rect x="-10" y="-19" width="20" height="4" rx="2" fill={cBody} stroke="none" />
+            )}
 
             {/* Label */}
             {label && (
