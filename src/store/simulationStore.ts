@@ -294,8 +294,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         console.log('Loaded Procedure Rules:', rules.length);
 
         // Apply Initial State (rule where after_action === '0' or '0_0')
-        // We look for a rule that applies to 'all' or default scenario.
-        // Assuming initialization is same for all or we pick 'all'.
         const initRule = rules.find(r => (r.after_action === '0' || r.after_action === '0_0') && r.scenario === 'all');
         if (initRule) {
             const updates: any = {};
@@ -303,7 +301,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                 const stateKey = KEY_MAP[key];
                 if (!stateKey) return;
 
-                // Handle Booleans
                 if (val.toUpperCase() === 'TRUE') {
                     updates[stateKey] = true;
                     if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = false;
@@ -313,12 +310,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                     if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = true;
                     if (stateKey === 'fw_pump_trip') updates['fw_pump'] = true;
                 } else {
-                    // Direct set, no transition for init
                     const targetStr = val.startsWith('_') ? val.substring(1) : val;
                     const target = parseFloat(targetStr);
                     if (!isNaN(target)) {
                         updates[stateKey] = target;
-                        // Special handling for FWCV to sync internal continuous state
                         if (stateKey === 'fwcv_degree') {
                             updates['fwcv_continuous'] = target;
                         }
@@ -328,6 +323,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
             console.log("Applied Initial State from CSV:", updates);
             set(updates);
         }
+
+        // Trigger 10sec Transition immediately (starts at t=0, lasts 10s)
+        const s = get();
+        s.triggerStepAction('10sec');
 
     } catch (e) {
         console.error('Failed to load procedure rules:', e);
@@ -392,6 +391,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                   if (val.startsWith('_')) {
                       duration = 5.0;
                       targetStr = val.substring(1);
+                  }
+
+                  // Special Case: 10sec trigger has 10s duration
+                  if (stepId === '10sec') {
+                      duration = 10.0;
                   }
 
                   const target = parseFloat(targetStr);
@@ -548,18 +552,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const shouldUpdateDisplay = !s.trainingMode || (new_tick_count % 10 === 0);
 
-    // --- Rules: Time-based Trigger (5sec) ---
-    // Replaces old fault_active logic with CSV rule
-    if (new_time >= 5.0 && !s.triggeredRules.has('5sec')) {
-        // Trigger generic '5sec' rule
-        s.triggerStepAction('5sec');
-        // We need to update triggeredRules manually here or inside triggerStepAction?
-        // triggerStepAction updates store state (which is 's' next frame), but we are in 'tick'.
-        // Better to set it in updates.
-        const newSet = new Set(s.triggeredRules);
-        newSet.add('5sec');
-        updates.triggeredRules = newSet;
-        updates.fault_active = true; // Keep for legacy compatibility if needed
+    // --- Rules: Time-based Triggers ---
+    // 10sec rule is now triggered at start via loadProcedureRules.
+    // We just need to ensure fault_active is set eventually if needed.
+    if (new_time >= 10.0 && !s.fault_active) {
+        updates.fault_active = true;
     }
 
     // 1. Reactor Logic
