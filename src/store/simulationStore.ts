@@ -343,7 +343,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       const normalizeId = (id: string) => {
           if (id === '5sec') return '5sec';
           // Extract numbers from pc_st_XX_YY
-          const match = id.match(/pc_st_(\d+)_(\d+)/);
+          const match = id.match(/pc_st_(\d+)_(\d+)/);  
           if (match) {
               const major = parseInt(match[1], 10);
               const minor = parseInt(match[2], 10);
@@ -562,12 +562,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // 1. Reactor Logic
     let target_reactivity = s.reactivity;
-    if (s.trip_reactor) {
-        target_reactivity = 0;
-        updates.all_rods_down = true;
-    } else {
-        updates.all_rods_down = false;
-    }
     const reactivity_change = (target_reactivity - s.reactivity) * 0.1;
     // Clamp reactivity 0-100
     const new_reactivity = Math.max(0, Math.min(100, s.reactivity + reactivity_change));
@@ -577,7 +571,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // Core Temp Logic
     const flow_factor = 1.0;
-    let target_core_t = 280 + (new_reactivity * 0.4) / flow_factor;
+    let target_core_t = 330.68 + (new_reactivity * 0.4) / flow_factor;
     target_core_t = Math.min(400, Math.max(20, target_core_t));
     const new_core_t = s.core_t + (target_core_t - s.core_t) * 0.02;
 
@@ -611,7 +605,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     // Note: Pump trip is now handled via CSV rule setting 'fw_pump_trip' -> 'fw_pump' = false.
 
     // Flow Calculation
-    let avail_pump_head = pump_on ? 2000 : 0;
+    let avail_pump_head = pump_on ? 2108 : 0;
     if (!s.fwiv) avail_pump_head = 0;
 
     // Hard failure flow factor
@@ -625,7 +619,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     new_fw_flow = Math.max(0, new_fw_flow);
 
     // 3. SG Logic
-    let steam_out = (new_reactivity / 100) * 1500;
+    let steam_out = (new_reactivity / 98.3) * 1054;
     if (!s.msiv) steam_out = 0;
 
     const mass_balance = new_fw_flow - steam_out;
@@ -633,13 +627,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     new_sg_level = Math.max(0, Math.min(100, new_sg_level));
 
     // Pressure Logic
-    let target_press = 60.0;
+    let target_press = 114.4;
     if (!s.msiv && new_reactivity > 0) target_press = 75.0;
     if (new_reactivity < 10) target_press = 40.0 + new_reactivity;
     const new_press = s.steam_press + (target_press - s.steam_press) * 0.05;
 
     // 4. Turbine Logic
-    let target_rpm = 1800 * s.turbine_speed_cv;
+    let target_rpm = 1800 - 1800 * (1-s.turbine_speed_cv) * 0.2;
     if (s.trip_turbine) target_rpm = 0;
     target_rpm = target_rpm * (1 - s.turbine_load_cv * 0.1);
     const new_rpm = s.turbine_rpm + (target_rpm - s.turbine_rpm) * 0.01;
