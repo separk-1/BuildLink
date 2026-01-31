@@ -65,8 +65,8 @@ const AlarmTile = ({ label, active }: { label: string, active: boolean }) => (
 
 const SchematicView = ({ state }: { state: any }) => {
   // Colors
-  const cPipeHot = "#ef4444"; // Red
-  const cPipeCold = "#3b82f6"; // Blue
+  const cPipeHot = "#f9c1c1"; // Red
+  const cPipeCold = "#b9d3fd"; // Blue
   const cComponent = "#1e293b"; // Slate 800
   const cBorder = "#e2e8f0"; // Light Gray (Slate 200) for all other lines
   const cValveOpen = "#22c55e"; // Green
@@ -213,7 +213,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Primary Flow (Between Reactor and RCP) */}
       {/* NO TOOLTIP */}
-      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/10, 1)} unit="m/s" width={90} />
+      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow, 1)} unit="m/s" width={90} />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
       {/* MOVED UP to y=400 (was 420) to separate from FWCV at y=500. */}

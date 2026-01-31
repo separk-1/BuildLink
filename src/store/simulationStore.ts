@@ -193,8 +193,8 @@ const INITIAL_STATE = {
   display_pri_flow: 1101,
 
   // SG
-  fw_flow: 1500,
-  display_fw_flow: 1500,
+  fw_flow: 1054,
+  display_fw_flow: 1054,
 
   fwcv_degree: 0.5,
   fwcv_continuous: 0.5,
@@ -293,7 +293,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         console.log('Loaded Procedure Rules:', rules.length);
 
         // Apply Initial State (rule where after_action === '0' or '0_0')
-        const initRule = rules.find(r => (r.after_action === '0' || r.after_action === '0_0') && r.scenario === 'all');
+        const initRule = rules.find(r =>
+            r.after_action === 'initial_value' && r.scenario === 'all'
+            );
         if (initRule) {
             const updates: any = {};
             Object.entries(initRule.updates).forEach(([key, val]) => {
@@ -680,10 +682,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5);
         updates.display_reactivity = Math.max(0, Math.min(100, raw_reactivity));
 
-        updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 500);
+        updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 10);
         updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0);
 
-        const raw_fw_display = addNoise(updates.fw_flow ?? new_fw_flow, 20);
+        const raw_fw_display = addNoise(updates.fw_flow ?? new_fw_flow, 10);
         updates.display_fw_flow = Math.max(0, raw_fw_display);
 
         const raw_sg_display = addNoise(updates.sg_level ?? new_sg_level, 0.5);
