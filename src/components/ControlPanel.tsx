@@ -29,10 +29,12 @@ export const ControlPanel = () => {
   const [pendingScenario, setPendingScenario] = useState<ScenarioPreset | null>(null);
 
   const [isResultClosed, setIsResultClosed] = useState(false);
+  const [endTime, setEndTime] = useState<number>(0);
 
   useEffect(() => {
     if (s.simulationEnded) {
         setIsResultClosed(false);
+        setEndTime(s.time);
     }
   }, [s.simulationEnded]);
 
@@ -232,7 +234,7 @@ export const ControlPanel = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
                           <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>Time elapsed:</span>
-                          <span style={{ color: 'var(--color-info)', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatTime(s.time)}</span>
+                          <span style={{ color: 'var(--color-info)', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatTime(endTime)}</span>
                       </div>
 
                       <div>
