@@ -104,8 +104,6 @@ const SchematicView = ({ state }: { state: any }) => {
       <rect x="650" y="250" width="200" height="150" rx="0" fill={cComponent} stroke={cBorder} strokeWidth="3" />
       <text x="750" y="325" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Condenser</text>
 
-      {/* Masking line REMOVED to show border between Turbine and Condenser */}
-
       {/* --------------------------------------------------------------------------
           PIPING LAYOUT
          -------------------------------------------------------------------------- */}
@@ -154,33 +152,41 @@ const SchematicView = ({ state }: { state: any }) => {
       </text>
 
       {/* Main Steam Isolation Valve (MSIV) - Vertically above SG */}
-      <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="MSIV (Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
+      <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="MSIV (Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} angle={state.msiv ? 90 : 0} />
 
       {/* Steam Pressure - Between MSIV and TSCV/Header. X=440. Moved Y up slightly to avoid MSIV label clash. */}
       {/* NO TOOLTIP */}
       <DigitalGauge x={440} y={35} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} />
 
       {/* Turbine Speed Control Valve - y=100 */}
-      <Valve x={550} y={100} open={true} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={100} open={true} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} angle={90} />
 
       {/* Turbine Load Control Valve - y=200 */}
-      <Valve x={550} y={200} open={true} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={200} open={true} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} angle={90} />
 
       {/* Turbine Bypass Control Valve - y=300 */}
-      <Valve x={550} y={300} open={false} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={300} open={false} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} angle={0} />
 
-      {/* Feedwater Pump - Moved to y=530 */}
-      <circle cx="500" cy="530" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="500" y="565" textAnchor="middle" fill="#94a3b8" fontSize="12">
+      {/* Feedwater Pump - Shifted Right to cx=540 (was 500) */}
+      <circle cx="540" cy="530" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
+      <text x="540" y="565" textAnchor="middle" fill="#94a3b8" fontSize="12">
           FWP
           <title>FWP (Feedwater Pump)</title>
       </text>
 
       {/* Feedwater Isolation Valve - Moved to y=530 */}
-      <Valve x={420} y={530} open={state.fwiv} label="FWIV" fullName="FWIV (Feedwater Isolation Valve)" vertical={false} labelY={-25} />
+      <Valve x={420} y={530} open={state.fwiv} label="FWIV" fullName="FWIV (Feedwater Isolation Valve)" vertical={false} labelY={-25} angle={state.fwiv ? 90 : 0} />
 
-      {/* Feedwater Control Valve - MOVED to y=500 (was 490) to avoid overlap */}
-      <Valve x={360} y={500} open={state.fwcv_degree > 0} label="FWCV" fullName="FWCV (Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
+      {/* Feedwater Control Valve - MOVED to y=500. Same shape as others. Rotates based on degree. */}
+      <Valve
+        x={360} y={500}
+        open={state.fwcv_degree > 0.05}
+        label="FWCV"
+        fullName="FWCV (Feedwater Control Valve)"
+        vertical={true}
+        labelOffset={40}
+        angle={state.fwcv_degree * 90}
+      />
 
 
       {/* --------------------------------------------------------------------------
@@ -243,9 +249,10 @@ const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false,
     );
 };
 
-const Valve = ({ x, y, open, label, vertical = true, scale = 1, type = 'gate', labelY, labelOffset, fullName }: any) => {
-    const cBody = "#94a3b8";
-    const cFill = open ? "#22c55e" : "#ef4444";
+const Valve = ({ x, y, open, label, vertical = true, scale = 1, labelY, labelOffset, fullName, angle = 0 }: any) => {
+    const cBody = "#94a3b8"; // Slate 400
+    // 5) Valve Color Rules: Open = Green (#22c55e), Closed = Gray (#64748b)
+    const cFill = open ? "#22c55e" : "#64748b";
 
     // Default label pos
     const ly = labelY || -30;
@@ -254,16 +261,18 @@ const Valve = ({ x, y, open, label, vertical = true, scale = 1, type = 'gate', l
     return (
         <g transform={`translate(${x}, ${y}) scale(${scale})`}>
             {fullName && <title>{fullName}</title>}
-            {/* Valve Symbol (Bowtie) */}
+
+            {/* Valve Symbol (Bowtie) - Rotates with pipe orientation (vertical prop) */}
             <path d="M -10 -10 L 10 10 L 10 -10 L -10 10 Z" fill={cFill} stroke="black" strokeWidth="1" transform={vertical ? "rotate(90)" : ""} />
 
-            {/* Stem & Actuator */}
+            {/* Stem - Fixed relative to body */}
             <line x1="0" y1="0" x2="0" y2="-15" stroke={cBody} strokeWidth="2" />
-            {type === 'control' ? (
-                <path d="M -10 -25 A 10 10 0 0 1 10 -25" fill="none" stroke={cBody} strokeWidth="2" />
-            ) : (
-                <line x1="-8" y1="-15" x2="8" y2="-15" stroke={cBody} strokeWidth="4" />
-            )}
+
+            {/* Handle/Actuator - Rotates based on 'angle' prop */}
+            {/* We rotate the handle around the top of the stem (0, -15) */}
+            <g transform={`translate(0, -15) rotate(${angle})`}>
+                <line x1="-8" y1="0" x2="8" y2="0" stroke={cBody} strokeWidth="4" strokeLinecap="round" />
+            </g>
 
             {/* Label */}
             {label && (

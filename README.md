@@ -29,11 +29,17 @@ When the simulator starts, an accident is **automatically triggered after about 
 
 ### Scenario Presets
 
-The Scenario Selector is located in the **Footer** of the Control Panel (Bottom Left). Note: It is only visible when **Training Mode** is toggled **OFF**.
+The Scenario Selector is located in the **Footer** of the Control Panel (Bottom Left). Note: It is only visible when **Training Mode** is toggled **ON** (Green). If Training Mode is OFF (Gray), the system defaults to Scenario C for evaluation.
 
-* **A: CV Issue:** Control valve malfunction. (Resolved by manually opening the valve)
-* **B: Pump Issue:** Feedwater pump is off. (Resolved by restarting the pump)
-* **C: Hard Fail:** Severe equipment failure. (Requires reactor trip)
+*   **A: CV Issue (Easy)**
+    *   **Event:** The Feedwater Control Valve (FWCV) fails and drifts closed.
+    *   **Goal:** Restore flow by switching FWCV to **Manual** and opening it.
+*   **B: Pump Issue (Medium)**
+    *   **Event:** The Main Feedwater Pump (FWP) trips offline.
+    *   **Goal:** Restore flow by **Restarting** the Feedwater Pump.
+*   **C: Hard Fail (Hard)**
+    *   **Event:** A severe combined failure where flow restoration is impossible.
+    *   **Goal:** Recognize the safety criteria (Low SG Level) and **Trip the Reactor** manually to stabilize the plant.
 
 ---
 

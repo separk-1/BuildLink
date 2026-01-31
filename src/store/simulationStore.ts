@@ -401,8 +401,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       return { activeStepId: prevStep || null, stepHistory: newHistory };
   }),
 
-  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] }),
-  toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),
+  setScenarioPreset: (preset) => set((state) => {
+      // If Training Mode is OFF, enforce 'hard' (C) preset only.
+      // Ideally UI hides this, but safety check:
+      if (!state.trainingMode) {
+          return { scenarioPreset: 'hard', ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
+      }
+      return { scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
+  }),
+  toggleTrainingMode: () => set((state) => {
+      const newMode = !state.trainingMode;
+      // Rule: If Training Mode is OFF, force Scenario C (Hard)
+      const newPreset = !newMode ? 'hard' : state.scenarioPreset;
+      return { trainingMode: newMode, scenarioPreset: newPreset };
+  }),
   resetSimulation: () => {
     const s = get();
     // Re-trigger load if needed, or just reset state
@@ -522,7 +534,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         updates.all_rods_down = false;
     }
     const reactivity_change = (target_reactivity - s.reactivity) * 0.1;
-    const new_reactivity = s.reactivity + reactivity_change;
+    // Clamp reactivity 0-100
+    const new_reactivity = Math.max(0, Math.min(100, s.reactivity + reactivity_change));
 
     // RCP effects Flow
     const target_pri_flow = s.rcp ? 45000 : 0;
@@ -631,7 +644,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }
 
     if (shouldUpdateDisplay) {
-        updates.display_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5, s.trainingMode);
+        // Clamp display reactivity 0-100
+        const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5, s.trainingMode);
+        updates.display_reactivity = Math.max(0, Math.min(100, raw_reactivity));
+
         updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 500, s.trainingMode);
         updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0, s.trainingMode);
 
