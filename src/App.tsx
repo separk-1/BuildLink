@@ -23,10 +23,10 @@ function App() {
   }, []);
 
   return (
-    <div className="app-container relative">
+    <div className="app-container relative w-screen h-screen">
       {/* Simulation Ended Overlay */}
       {simulationEnded && (
-        <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
           <div style={{
               backgroundColor: '#1e293b',
               border: '1px solid var(--border-color)',
