@@ -29,7 +29,7 @@ When the simulator starts, an accident is **automatically triggered after about 
 
 ### Scenario Presets
 
-Select the accident type from the top of the Control Panel.
+The Scenario Selector is located in the **Footer** of the Control Panel (Bottom Left). Note: It is only visible when **Training Mode** is toggled **OFF**.
 
 * **A: CV Issue:** Control valve malfunction. (Resolved by manually opening the valve)
 * **B: Pump Issue:** Feedwater pump is off. (Resolved by restarting the pump)
@@ -61,4 +61,4 @@ npm run dev
 npm run build
 ```
 
-> 💡 **Note:** For more detailed system architecture and physical model explanations, see [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md).
+> 💡 **Note:** For more detailed system architecture, see [`SYSTEM_OVERVIEW.md`](./SYSTEM_OVERVIEW.md). For logic details, see [`SCENARIO_LOGIC.md`](./SCENARIO_LOGIC.md).
