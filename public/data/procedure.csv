@@ -3,7 +3,7 @@
 1_2,Verify that the Feedwater Flow is less than 1000 L/sec
 2_1,Turn the Feedwater Control Valve (FWCV) into Manual mode
 2_2,Turn the Feedwater Control Valve (FWCV) to 100%
-2_3,"Check if the Feedwater Flow has been restored
+2_3, "Check if the Feedwater Flow has been restored
 If the Feedwater Flow has been restored, End procedure
 If the Feedwater Flow had not been restored, Go to step 3.1"
 3_1,"Check if the Feedwater Pump Switch is OFF

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSimulationStore, type ScenarioPreset } from '../store/simulationStore';
 import { logger } from '../utils/logger';
 
@@ -8,10 +8,35 @@ const formatTime = (t: number) => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+const SCENARIO_RESULTS: Record<ScenarioPreset, { problem: string, resolution: string }> = {
+    cv: {
+        problem: "Feedwater Control Valve (FWCV) malfunctioned in Automatic mode.",
+        resolution: "Switched FWCV to Manual mode and restored Feedwater Flow."
+    },
+    pump: {
+        problem: "Feedwater Pump tripped, causing loss of flow.",
+        resolution: "Manually restarted the Feedwater Pump to restore flow."
+    },
+    hard: {
+        problem: "Total Loss of Feedwater (LOFW) Event.",
+        resolution: "Executed Emergency Shutdown (Trip Reactor/Turbine) and initiated Feed & Bleed cooling."
+    }
+};
+
 export const ControlPanel = () => {
   const s = useSimulationStore();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingScenario, setPendingScenario] = useState<ScenarioPreset | null>(null);
+
+  const [isResultClosed, setIsResultClosed] = useState(false);
+  const [endTime, setEndTime] = useState<number>(0);
+
+  useEffect(() => {
+    if (s.simulationEnded) {
+        setIsResultClosed(false);
+        setEndTime(s.time);
+    }
+  }, [s.simulationEnded]);
 
   const handleScenarioChange = (val: ScenarioPreset) => {
       setPendingScenario(val);
@@ -180,6 +205,66 @@ export const ControlPanel = () => {
                       </button>
                       <button className="dcs-btn" onClick={confirmScenarioChange} style={{ borderColor: '#ef4444', color: '#ef4444' }}>
                           Confirm
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Scenario Complete Modal */}
+      {s.simulationEnded && !isResultClosed && (
+          <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 100
+          }}>
+              <div style={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius)',
+                  padding: '24px',
+                  width: '400px',
+                  maxWidth: '95%',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}>
+                  <h3 style={{ marginTop: 0, color: '#f8fafc', fontSize: '1.2rem', marginBottom: '4px' }}>Scenario Complete</h3>
+                  <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Issue resolved.</div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                          <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>Time elapsed:</span>
+                          <span style={{ color: 'var(--color-info)', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatTime(endTime)}</span>
+                      </div>
+
+                      <div>
+                          <div style={{ color: '#cbd5e1', fontSize: '0.85rem', marginBottom: '2px' }}>Problem:</div>
+                          <div style={{ color: '#f1f5f9', fontSize: '0.9rem' }}>{SCENARIO_RESULTS[s.scenarioPreset].problem}</div>
+                      </div>
+
+                      <div>
+                          <div style={{ color: '#cbd5e1', fontSize: '0.85rem', marginBottom: '2px' }}>Resolution:</div>
+                          <div style={{ color: '#f1f5f9', fontSize: '0.9rem' }}>{SCENARIO_RESULTS[s.scenarioPreset].resolution}</div>
+                      </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                       <button
+                          className="dcs-btn"
+                          onClick={() => setIsResultClosed(true)}
+                          style={{ borderColor: '#94a3b8', color: '#cbd5e1', padding: '8px 16px' }}
+                       >
+                          Close
+                      </button>
+                      <button
+                          className="dcs-btn"
+                          onClick={() => {
+                              s.resetSimulation();
+                              setIsResultClosed(true);
+                          }}
+                          style={{ borderColor: '#22c55e', color: '#22c55e', padding: '8px 16px' }}
+                      >
+                          Restart Scenario
                       </button>
                   </div>
               </div>
