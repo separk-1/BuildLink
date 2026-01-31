@@ -36,34 +36,6 @@ export const ControlPanel = () => {
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>CONTROL PANEL</span>
-
-            {/* Scenario Selector & TRN Toggle moved to Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px', borderLeft: '1px solid #555', paddingLeft: '10px' }}>
-                 {/* Training Mode Toggle */}
-                 <button
-                    className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
-                    onClick={s.toggleTrainingMode}
-                    style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
-                    title="Training Mode (Randomness)"
-                 >
-                    TRN: {s.trainingMode ? 'ON' : 'OFF'}
-                 </button>
-
-                 {/* Scenario Selector (Only when Training Mode is OFF) */}
-                {!s.trainingMode && (
-                    <select
-                        className="dcs-select"
-                        style={{ width: '100px', fontSize: '0.7rem' }}
-                        value={s.scenarioPreset}
-                        onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
-                        title="Scenario Preset"
-                    >
-                        <option value="cv">SCENARIO A</option>
-                        <option value="pump">SCENARIO B</option>
-                        <option value="hard">SCENARIO C</option>
-                    </select>
-                )}
-            </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -79,7 +51,7 @@ export const ControlPanel = () => {
         <ControlColumn label="REACTOR">
             <TripButton label="TRIP REACTOR" onClick={s.toggleTripReactor} tripped={s.trip_reactor} />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
                  <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
                  <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
                  <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
@@ -88,8 +60,8 @@ export const ControlPanel = () => {
 
         {/* SG Column */}
         <ControlColumn label="STEAM GENERATOR">
-            {/* Vertical Toggles */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* Horizontal Toggles */}
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
                 <ToggleButton label="FWP" active={s.fw_pump} onClick={s.toggleFwPump} />
                 <ToggleButton label="FWIV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
                 <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
@@ -132,6 +104,35 @@ export const ControlPanel = () => {
           justifyContent: 'flex-end'
       }}>
             {/* Footer Buttons */}
+
+            {/* Scenario Selector & TRN Toggle moved to Footer (Left side) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: 'auto' }}>
+                 {/* Training Mode Toggle */}
+                 <button
+                    className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                    onClick={s.toggleTrainingMode}
+                    style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                    title="Training Mode (Randomness)"
+                 >
+                    TRN: {s.trainingMode ? 'ON' : 'OFF'}
+                 </button>
+
+                 {/* Scenario Selector (Only when Training Mode is OFF) */}
+                {!s.trainingMode && (
+                    <select
+                        className="dcs-select"
+                        style={{ width: '100px', fontSize: '0.7rem' }}
+                        value={s.scenarioPreset}
+                        onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
+                        title="Scenario Preset"
+                    >
+                        <option value="cv">SCENARIO A</option>
+                        <option value="pump">SCENARIO B</option>
+                        <option value="hard">SCENARIO C</option>
+                    </select>
+                )}
+            </div>
+
             <button
                 className="dcs-btn"
                 onClick={s.resetSimulation}
@@ -193,14 +194,15 @@ const ControlColumn = ({ label, children }: { label: string, children: React.Rea
   </div>
 );
 
+// Toggle Button with increased size (minHeight: 36px, padding: 8px)
 const ToggleButton = ({ label, active, onClick, onLabel = 'ON', offLabel = 'OFF' }: { label: string, active: boolean, onClick: () => void, onLabel?: string, offLabel?: string }) => (
     <button
         onClick={onClick}
         className={`dcs-btn ${active ? 'active-green' : ''}`}
-        style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', minHeight: '30px' }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '8px 4px', minHeight: '40px' }}
     >
-        <span style={{ fontSize: '0.65rem', textAlign: 'left', marginRight: '8px', lineHeight: '1.1' }}>{label}</span>
-        <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{active ? onLabel : offLabel}</span>
+        <span style={{ fontSize: '0.65rem', lineHeight: '1.1', marginBottom: '2px' }}>{label}</span>
+        <span style={{ fontSize: '0.6rem', fontWeight: 'bold' }}>{active ? onLabel : offLabel}</span>
     </button>
 );
 

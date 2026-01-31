@@ -103,9 +103,7 @@ const SchematicView = ({ state }: { state: any }) => {
       <rect x="650" y="250" width="200" height="150" rx="0" fill={cComponent} stroke={cBorder} strokeWidth="3" />
       <text x="750" y="325" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Condenser</text>
 
-      {/* Mask the border between Turbine and Condenser to make them look unified */}
-      <line x1="653" y1="250" x2="847" y2="250" stroke={cComponent} strokeWidth="4" />
-
+      {/* Masking line REMOVED to show border between Turbine and Condenser */}
 
       {/* --------------------------------------------------------------------------
           PIPING LAYOUT
@@ -158,7 +156,8 @@ const SchematicView = ({ state }: { state: any }) => {
       <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="MSIV (Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
 
       {/* Steam Pressure - Between MSIV and TSCV/Header. X=440. Moved Y up slightly to avoid MSIV label clash. */}
-      <DigitalGauge x={440} y={35} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} fullName="(Steam Pressure)" />
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={440} y={35} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} />
 
       {/* Turbine Speed Control Valve - y=100 */}
       <Valve x={550} y={100} open={true} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
@@ -179,9 +178,8 @@ const SchematicView = ({ state }: { state: any }) => {
       {/* Feedwater Isolation Valve - Moved to y=530 */}
       <Valve x={420} y={530} open={state.fwiv} label="FWIV" fullName="FWIV (Feedwater Isolation Valve)" vertical={false} labelY={-25} />
 
-      {/* Feedwater Control Valve - Moved to y=490 to make room for gauge */}
-      {/* Moving FWCV slightly lower or ensuring gauge is high enough */}
-      <Valve x={360} y={490} open={state.fwcv_degree > 0} label="FWCV" fullName="FWCV (Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
+      {/* Feedwater Control Valve - MOVED to y=500 (was 490) to avoid overlap */}
+      <Valve x={360} y={500} open={state.fwcv_degree > 0} label="FWCV" fullName="FWCV (Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
 
 
       {/* --------------------------------------------------------------------------
@@ -189,33 +187,33 @@ const SchematicView = ({ state }: { state: any }) => {
          -------------------------------------------------------------------------- */}
 
       {/* Reactivity (Top Left) - Moved Above Reactor (x=50, w=140). Gauge Width=80/100. */}
-      {/* Moved Y to 110 to ensure clear separation from Reactor top (y=180) */}
-      <DigitalGauge x={40} y={110} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" width={90} fullName="(Reactivity)" />
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={40} y={110} label="Reactivity" value={fmt(state.display_reactivity, 1)} unit="pcm" width={90} />
 
       {/* Core Temp (Top Left) - Moved Above Reactor */}
-      <DigitalGauge x={140} y={110} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" width={90} fullName="(Core Temperature)" />
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={140} y={110} label="Core Temp" value={fmt(state.display_core_t, 1)} unit="°C" width={90} />
 
       {/* Turbine Speed (Top Right) */}
-      <DigitalGauge x={700} y={20} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} fullName="(Turbine Speed)" />
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={700} y={20} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} />
 
       {/* SG Level (On SG) */}
+      {/* NO TOOLTIP */}
       <DigitalGauge x={310} y={230} label="SG Level" value={fmt(state.display_sg_level, 1)} unit="%"
           warn={state.sg_low_level || state.sg_high_level}
           compact={true}
-          fullName="(Steam Generator Level)"
       />
 
       {/* Primary Flow (Between Reactor and RCP) */}
-      {/* Reactor Right X=190. RCP X=245. Center ~217. Y=330. */}
-      {/* Pipe Y=380. 330 + 50 (height) = 380. Touches pipe. Move up to 310. */}
-      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} fullName="(Primary Flow)" />
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
-      {/* SG Bottom y=410. FWCV y=490. Distance=80px. Gauge H=50. */}
-      {/* If gauge at y=420: Bottom=470. FWCV top (y=490-15=475). Very close. */}
-      {/* Let's move Gauge to y=420. FWCV is at y=490. */}
-      <DigitalGauge x={320} y={420} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
-          warn={state.fw_low_flow} width={80} compact={true} fullName="(Feedwater Flow)"
+      {/* MOVED UP to y=400 (was 420) to separate from FWCV at y=500. */}
+      {/* NO TOOLTIP */}
+      <DigitalGauge x={320} y={400} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+          warn={state.fw_low_flow} width={80} compact={true}
       />
 
     </svg>
@@ -226,11 +224,11 @@ const SchematicView = ({ state }: { state: any }) => {
 // SVG Helpers
 // ----------------------------------------------------------------------------
 
-const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false, width, fullName }: any) => {
+const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false, width }: any) => {
     const w = width || (compact ? 80 : 100);
     return (
         <g transform={`translate(${x}, ${y})`}>
-            <title>{fullName}</title>
+            {/* No Tooltip here as requested */}
             {/* Label Background */}
             <rect x="0" y="0" width={w} height="20" fill="#333" />
             <text x={w/2} y="14" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{label}</text>
@@ -254,7 +252,7 @@ const Valve = ({ x, y, open, label, vertical = true, scale = 1, type = 'gate', l
 
     return (
         <g transform={`translate(${x}, ${y}) scale(${scale})`}>
-            <title>{fullName}</title>
+            {fullName && <title>{fullName}</title>}
             {/* Valve Symbol (Bowtie) */}
             <path d="M -10 -10 L 10 10 L 10 -10 L -10 10 Z" fill={cFill} stroke="black" strokeWidth="1" transform={vertical ? "rotate(90)" : ""} />
 
