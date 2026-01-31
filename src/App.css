@@ -54,7 +54,7 @@ body {
 
   /* Mobile First Default (Stack) */
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto; /* Sim / Support */
+  grid-template-rows: auto auto auto; /* Sim / Support / Footer */
   height: auto;
   min-height: 100vh;
   overflow-y: auto;
@@ -75,8 +75,24 @@ body {
        We can combine this with minmax to ensure robustness within the grid tracks.
     */
     grid-template-columns: minmax(500px, 65fr) minmax(300px, 35fr);
-    grid-template-rows: 1fr;
+    grid-template-rows: 1fr auto; /* Content / Footer */
   }
+}
+
+/* Footer Style */
+.app-footer {
+  grid-column: 1 / -1; /* Span full width */
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px; /* Minimal fixed height */
+  line-height: 1.4;
+  word-break: break-word; /* Prevent overflow on tiny screens */
 }
 
 /* --- Column Wrappers --- */

@@ -103,6 +103,11 @@ function App() {
           <ProcedurePanel />
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="app-footer">
+        BuildLink — Research prototype submitted to the Nemetschek Innovation Award · CMU CEE · Contact: seongeup@andrew.cmu.edu, joonsunh@andrew.cmu.edu
+      </footer>
     </div>
   );
 }

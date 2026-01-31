@@ -35,15 +35,19 @@ const parseCSV = (csv: string) => {
 const parseProcedureCSV = (csv: string) => {
     const lines = csv.trim().split('\n');
     const headers = lines[0].split(',');
-    // Assuming headers include 'step_id' and 'description'
+    // Assuming headers include 'step' (or 'step_id') and 'description'
     const map = new Map<string, string>();
     lines.slice(1).forEach(line => {
         const values = line.split(',');
         const row: any = {};
         headers.forEach((h, i) => row[h.trim()] = values[i]?.trim());
-        if (row.step_id && row.description) {
+
+        // Handle 'step' from prompt or fallback to 'step_id'
+        const stepKey = row.step || row.step_id;
+
+        if (stepKey && row.description) {
             // Map the raw ID from CSV (e.g. "pc_st_01_01" OR "1_1")
-            map.set(row.step_id, row.description);
+            map.set(stepKey, row.description);
         }
     });
     return map;
@@ -83,6 +87,10 @@ export const ProcedurePanel = () => {
   const [procedureMap, setProcedureMap] = useState<Map<string, string>>(new Map());
   const [autoFocus, setAutoFocus] = useState(true);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
+
+  // Tooltip State
+  const [hoverTooltip, setHoverTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { activeStepId, setActiveStepId, stepHistory, goToPreviousStep } = useSimulationStore();
@@ -346,6 +354,27 @@ export const ProcedurePanel = () => {
 
   }, [activeStepId, highlightSet]);
 
+  // Handle Node Hover for Tooltip
+  const handleNodeHover = useCallback((node: CustomNode | null) => {
+      if (node && node.type === 'PC_ST') {
+          const desc = getProcedureDescription(node.id, procedureMap);
+          if (desc && fgRef.current) {
+              // Get screen coordinates relative to the graph canvas
+              // Note: we need to handle if x/y are undefined (rare but possible during init)
+              if (node.x !== undefined && node.y !== undefined) {
+                   const coords = fgRef.current.graph2ScreenCoords(node.x, node.y);
+                   setHoverTooltip({
+                       content: desc,
+                       x: coords.x,
+                       y: coords.y
+                   });
+                   return;
+              }
+          }
+      }
+      setHoverTooltip(null);
+  }, [procedureMap]);
+
   return (
     <>
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -394,16 +423,16 @@ export const ProcedurePanel = () => {
           linkCanvasObject={paintLink}
           linkCanvasObjectMode={() => 'replace'}
           nodeLabel={(node: CustomNode) => {
-              // Priority: Procedure Description -> Value -> Name
-              if (node.type === 'PC_ST') {
-                  const desc = getProcedureDescription(node.id, procedureMap);
-                  if (desc) return desc;
+              // Only show default label for non-step nodes or values
+              if (node.type !== 'PC_ST') {
+                  if (node.value && node.value.toLowerCase() !== 'na') {
+                      return node.value;
+                  }
+                  return node.name;
               }
-              if (node.value && node.value.toLowerCase() !== 'na') {
-                  return node.value;
-              }
-              return node.name;
+              return ''; // Suppress default label for steps
           }}
+          onNodeHover={handleNodeHover}
           // Physics Configuration
           d3VelocityDecay={0.2}
           cooldownTicks={100}
@@ -430,6 +459,29 @@ export const ProcedurePanel = () => {
             }
           }}
         />
+
+        {/* Custom Tooltip Overlay */}
+        {hoverTooltip && (
+            <div style={{
+                position: 'absolute',
+                top: hoverTooltip.y + 15, // Offset below cursor/node
+                left: hoverTooltip.x + 15,
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid #3b82f6',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                color: '#e2e8f0',
+                fontSize: '0.8rem',
+                maxWidth: '250px',
+                zIndex: 50,
+                pointerEvents: 'none',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
+                whiteSpace: 'normal',
+                lineHeight: '1.4'
+            }}>
+                {hoverTooltip.content}
+            </div>
+        )}
 
         {/* Legend Overlay */}
         <div style={{ position: 'absolute', bottom: 60, left: 10, background: 'rgba(0,0,0,0.5)', padding: 5, borderRadius: 4, pointerEvents: 'none', zIndex: 10 }}>
