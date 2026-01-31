@@ -1,6 +1,7 @@
 # BuildLink
 
 **BuildLink — Research prototype submitted to the Nemetschek Innovation Award · CMU CEE**
+
 Contact: [seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu), [joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu)
 
 BuildLink is a research prototype that provides **context-aware, queryable operational support** for complex infrastructure systems.
@@ -22,7 +23,7 @@ This repository includes a **live web-based demonstrator**, validated using a **
 BuildLink supports human operators during abnormal or emergency situations by:
 
 * Visualizing operational procedures as **knowledge graphs**
-* Preserving **operator-driven decision-making** (no automatic branching)
+* Preserving **operator-driven decision-making**
 * Providing **context-aware AI assistance** grounded in procedures and system state
 * Enabling intuitive navigation of procedures, incidents, and system conditions
 
@@ -108,11 +109,3 @@ http://localhost:8000
 
 * This repository is intended as a **research prototype and live demonstrator**.
 * Detailed problem formulation, technical contributions, and evaluation are described in the accompanying report submitted to the Nemetschek Innovation Award.
-
----
-
-## 📩 Contact
-
-**Seongeun Park**, **Joonsun Hwang**
-Carnegie Mellon University, Civil & Environmental Engineering
-Email: [seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu), [joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu)
