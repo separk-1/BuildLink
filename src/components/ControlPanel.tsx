@@ -69,17 +69,22 @@ export const ControlPanel = () => {
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
-                 <ToggleButton
-                    label="FW CONTROL"
-                    active={s.fwcv_mode}
-                    onClick={s.toggleFwcvMode}
-                    onLabel="AUTO"
-                    offLabel="MANUAL"
-                 />
-            </div>
-
-            <Slider label="FWCV" value={s.fwcv_degree} onChange={s.setFwcvDegree} disabled={s.fwcv_mode} />
+            {/* FW Control Slider with embedded Auto/Manual Toggle */}
+            <Slider
+                label="FW CONTROL"
+                value={s.fwcv_degree}
+                onChange={s.setFwcvDegree}
+                disabled={s.fwcv_mode}
+                headerElement={
+                    <button
+                        onClick={s.toggleFwcvMode}
+                        className={`dcs-btn ${s.fwcv_mode ? 'active-green' : ''}`}
+                        style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px', height: '20px' }}
+                    >
+                        {s.fwcv_mode ? 'AUTO' : 'MANUAL'}
+                    </button>
+                }
+            />
 
         </ControlColumn>
 
@@ -103,40 +108,39 @@ export const ControlPanel = () => {
           alignItems: 'center',
           justifyContent: 'flex-end'
       }}>
-            {/* Footer Buttons */}
+            {/* Footer Buttons: [Spacer] [TRN] [Scenario] [RESTART] [LOGS] */}
 
-            {/* Scenario Selector & TRN Toggle moved to Footer (Left side) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: 'auto' }}>
-                 {/* Training Mode Toggle */}
-                 <button
-                    className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
-                    onClick={s.toggleTrainingMode}
-                    style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
-                    title="Training Mode (Randomness)"
-                 >
-                    TRN: {s.trainingMode ? 'ON' : 'OFF'}
-                 </button>
+            <div style={{ flex: 1 }}></div>
 
-                 {/* Scenario Selector (Only when Training Mode is OFF) */}
-                {!s.trainingMode && (
-                    <select
-                        className="dcs-select"
-                        style={{ width: '100px', fontSize: '0.7rem' }}
-                        value={s.scenarioPreset}
-                        onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
-                        title="Scenario Preset"
-                    >
-                        <option value="cv">SCENARIO A</option>
-                        <option value="pump">SCENARIO B</option>
-                        <option value="hard">SCENARIO C</option>
-                    </select>
-                )}
-            </div>
+            {/* Training Mode Toggle */}
+             <button
+                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                onClick={s.toggleTrainingMode}
+                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                title="Training Mode (Randomness)"
+             >
+                TRN: {s.trainingMode ? 'ON' : 'OFF'}
+             </button>
+
+             {/* Scenario Selector (Only when Training Mode is OFF) */}
+            {!s.trainingMode && (
+                <select
+                    className="dcs-select"
+                    style={{ width: '100px', fontSize: '0.7rem' }}
+                    value={s.scenarioPreset}
+                    onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
+                    title="Scenario Preset"
+                >
+                    <option value="cv">SCENARIO A</option>
+                    <option value="pump">SCENARIO B</option>
+                    <option value="hard">SCENARIO C</option>
+                </select>
+            )}
 
             <button
                 className="dcs-btn"
                 onClick={s.resetSimulation}
-                style={{ padding: '2px 8px', fontSize: '0.6rem' }}
+                style={{ padding: '2px 8px', fontSize: '0.6rem', marginLeft: '8px' }}
             >
                 RESTART
             </button>
@@ -222,11 +226,14 @@ const TripButton = ({ label, onClick, tripped }: { label: string, onClick: () =>
     </button>
 );
 
-const Slider = ({ label, value, onChange, disabled = false }: { label: string, value: number, onChange: (val: number) => void, disabled?: boolean }) => (
+const Slider = ({ label, value, onChange, disabled = false, headerElement }: { label: string, value: number, onChange: (val: number) => void, disabled?: boolean, headerElement?: React.ReactNode }) => (
     <div className="dcs-slider-container" style={{ opacity: disabled ? 0.5 : 1 }}>
         <div className="dcs-slider-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '4px' }}>
             <span style={{ fontSize: '0.7rem', lineHeight: '1.1' }}>{label}</span>
-            <span style={{ fontFamily: 'monospace', color: 'var(--color-info)', fontSize: '0.8rem' }}>{(value * 100).toFixed(0)}%</span>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {headerElement}
+                <span style={{ fontFamily: 'monospace', color: 'var(--color-info)', fontSize: '0.8rem' }}>{(value * 100).toFixed(0)}%</span>
+            </div>
         </div>
         <input
             type="range"

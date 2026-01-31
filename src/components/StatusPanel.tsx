@@ -73,7 +73,8 @@ const SchematicView = ({ state }: { state: any }) => {
 
   // Dimensions
   const W = 900;
-  const H = 550;
+  // Increased height to prevent clipping
+  const H = 600;
 
   // Formatting helpers
   const fmt = (n: number, d = 0) => n.toFixed(d);
