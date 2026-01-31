@@ -76,20 +76,28 @@ export const ControlPanel = () => {
         <ControlColumn label="REACTOR">
             <TripButton label="TRIP REACTOR" onClick={s.toggleTripReactor} tripped={s.trip_reactor} />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Horizontal Toggles */}
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
                  <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
                  <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
                  <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
         </ControlColumn>
 
         {/* SG Column */}
         <ControlColumn label="STEAM GENERATOR">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <ToggleButton label="Feedwater Pump" active={s.fw_pump} onClick={s.toggleFwPump} />
+            {/* Horizontal Toggles */}
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
+                <ToggleButton label="FWP" active={s.fw_pump} onClick={s.toggleFwPump} />
                 <ToggleButton label="FWIV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
+            </div>
+             <div style={{ display: 'flex', flexDirection: 'row', gap: '4px', marginTop: '4px' }}>
                 <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
+
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
 
