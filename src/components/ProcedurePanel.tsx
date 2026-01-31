@@ -83,14 +83,14 @@ const getNodeColor = (type: string) => {
 
 export const ProcedurePanel = () => {
   const fgRef = useRef<any>(undefined);
-  const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
-  const [procedureMap, setProcedureMap] = useState<Map<string, string>>(new Map());
+  // const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
   const [autoFocus, setAutoFocus] = useState(true);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
 
   // Tooltip & Highlight State
   const [hoverTooltip, setHoverTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [highlightedPath, setHighlightedPath] = useState<'TRUE' | 'FALSE' | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,17 +114,16 @@ export const ProcedurePanel = () => {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Parse Data when available
-  useEffect(() => {
-    if (loading || !entityCsv || !relationshipCsv) return;
+  const procedureMap = useMemo(() => {
+      if (!procedureCsv) return new Map<string, string>();
+      return parseProcedureCSV(procedureCsv);
+  }, [procedureCsv]);
+
+  const graphData = useMemo(() => {
+    if (loading || !entityCsv || !relationshipCsv) return { nodes: [], links: [] };
 
     const entities = parseCSV(entityCsv);
     const relationships = parseCSV(relationshipCsv);
-
-    // Parse Procedure Descriptions
-    if (procedureCsv) {
-        setProcedureMap(parseProcedureCSV(procedureCsv));
-    }
 
     const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
@@ -144,8 +143,8 @@ export const ProcedurePanel = () => {
       return nodes.find(n => n.id === l.source) && nodes.find(n => n.id === l.target);
     });
 
-    setGraphData({ nodes, links });
-  }, [entityCsv, relationshipCsv, procedureCsv, loading]);
+    return { nodes, links };
+  }, [entityCsv, relationshipCsv, loading]);
 
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {
@@ -161,14 +160,42 @@ export const ProcedurePanel = () => {
       if (!sourceId) return set;
       set.add(sourceId);
 
-      // Analyze Links from Source
-      const sourceLinks = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === sourceId;
-      });
+      // Helper to safely get node ID
+      const getId = (node: string | CustomNode) => typeof node === 'object' ? node.id : node;
 
-      // Find target class for chain highlighting
-      // Rule: Find 'verify' edge (or fallback to any non-next edge), get its class_num
+      // Analyze Links from Source
+      const sourceLinks = graphData.links.filter(l => getId(l.source) === sourceId);
+
+      // 1. Check for 2-Hop Conditional Chain (Step -> Check -> Indicator -> Is -> Condition -> TRUE/FALSE)
+      const checkLink = sourceLinks.find(l => l.label === 'check_if');
+      if (checkLink) {
+          const indicatorId = getId(checkLink.target);
+          const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
+
+          // Find 'is' edge from Indicator that MATCHES the class of the checkLink (to handle shared indicators)
+          const isLink = indicatorLinks.find(l =>
+              (l.label === 'is' || l.label === 'is_below' || l.label === 'is_over') &&
+              (!checkLink.class_num || l.class_num === checkLink.class_num)
+          );
+
+          if (isLink) {
+              const conditionId = getId(isLink.target);
+              // Check if Condition Node has TRUE/FALSE edges
+              const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
+              const hasDecision = conditionLinks.some(l => l.label === 'TRUE' || l.label === 'FALSE');
+
+              if (hasDecision) {
+                  // Add Entire Chain to Highlight Set
+                  set.add(indicatorId);
+                  set.add(conditionId);
+                  conditionLinks.forEach(l => set.add(getId(l.target)));
+                  return set;
+              }
+          }
+      }
+
+
+      // 2. Fallback: Standard Verify Chain
       const verifyLink = sourceLinks.find(l => l.label === 'verify');
       // If verify exists, use it. Else try first non-next edge.
       const targetLink = verifyLink || sourceLinks.find(l => l.label !== 'next' && (l as any).type !== 'next');
@@ -180,16 +207,13 @@ export const ProcedurePanel = () => {
           // Excluding 'next' edges
           graphData.links.forEach(l => {
               if (l.class_num === targetClass && l.label !== 'next' && (l as any).type !== 'next') {
-                  const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-                  const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
+                  const sId = getId(l.source);
+                  const tId = getId(l.target);
 
-                  set.add(sId as string);
-                  set.add(tId as string);
+                  set.add(sId);
+                  set.add(tId);
               }
           });
-      } else {
-          // Fallback (e.g. step with only 'next'): Just highlight itself (already added)
-          // Or maybe highlight immediate non-next neighbors if any (but we filtered above)
       }
 
       return set;
@@ -200,34 +224,59 @@ export const ProcedurePanel = () => {
   const stepOptions = useMemo(() => {
       if (!activeStepId || graphData.links.length === 0) return { type: 'NONE' };
 
+      // Helper to safely get target ID
+      const getId = (node: string | CustomNode) => typeof node === 'object' ? node.id : node;
+      const getTarget = (l?: CustomLink) => l ? getId(l.target) : undefined;
+
       // Find all outgoing links from activeStepId
-      // Note: react-force-graph converts source to object, so we check ID safely
-      const links = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === activeStepId;
-      });
+      const links = graphData.links.filter(l => getId(l.source) === activeStepId);
 
       const verifyLink = links.find(l => l.label === 'verify');
-      const trueLink = links.find(l => l.label === 'true_then');
-      const falseLink = links.find(l => l.label === 'false_then');
-      const ifLink = links.find(l => l.label === 'if');
+      const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE');
+      const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE');
       const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
-      const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if'].includes(l.label));
+      const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if', 'check_if'].includes(l.label));
 
-      // 1. Decision (Check-If)
+      // 1. Direct Decision (Check-If) - 1 Hop
       if (trueLink || falseLink) {
-          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
           return {
               type: 'DECISION',
               trueNode: getTarget(trueLink),
-              falseNode: getTarget(falseLink),
-              ifLink
+              falseNode: getTarget(falseLink)
           };
       }
 
-      // 2. Verify
+      // 2. Indirect Decision (Step -> check_if -> Indicator -> is -> Condition -> TRUE/FALSE) - 2 Hops
+      const checkLink = links.find(l => l.label === 'check_if');
+      if (checkLink) {
+          const indicatorId = getTarget(checkLink);
+          const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
+
+          // Must match class_num to ensure we follow the correct scenario logic for this step
+          const isLink = indicatorLinks.find(l =>
+              (l.label === 'is' || l.label === 'is_below' || l.label === 'is_over') &&
+              (!checkLink.class_num || l.class_num === checkLink.class_num)
+          );
+
+          if (isLink) {
+              const conditionId = getTarget(isLink);
+              const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
+
+              const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
+              const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
+
+              if (cTrueLink || cFalseLink) {
+                  return {
+                      type: 'DECISION',
+                      trueNode: getTarget(cTrueLink),
+                      falseNode: getTarget(cFalseLink)
+                  };
+              }
+          }
+      }
+
+      // 3. Verify
       if (verifyLink) {
-           const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
            return {
                type: 'VERIFY',
                nextNode: getTarget(nextLink), // Proceed to next step after verification
@@ -235,10 +284,9 @@ export const ProcedurePanel = () => {
            };
       }
 
-      // 3. Standard Next
+      // 4. Standard Next
       if (nextLink || genericLink) {
           const link = nextLink || genericLink;
-          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
           return {
               type: 'STEP',
               nextNode: getTarget(link)
@@ -346,9 +394,29 @@ export const ProcedurePanel = () => {
       let opacity = 0.3; // Default visible (was 0.1)
 
       if (isRelevant) {
-          opacity = 1;
-          strokeStyle = '#eab308'; // Unify all active highlights to Yellow
-          lineWidth = 2 / globalScale;
+          // Explicitly exclude 'next' edges from being highlighted even if endpoints are in highlightSet
+          if (link.label === 'next') {
+              // Reset to default dim style
+              opacity = 0.3;
+              strokeStyle = '#475569';
+              lineWidth = 1 / globalScale;
+          } else {
+              opacity = 1;
+              strokeStyle = '#eab308'; // Unify all active highlights to Yellow
+              lineWidth = 2 / globalScale;
+
+              // Dim non-selected paths if a path is highlighted via hover
+              if (highlightedPath) {
+                  if (link.label === 'TRUE' && highlightedPath !== 'TRUE') opacity = 0.1;
+                  if (link.label === 'FALSE' && highlightedPath !== 'FALSE') opacity = 0.1;
+              }
+
+              // Bold selected path
+              if (highlightedPath && link.label === highlightedPath) {
+                  lineWidth = 4 / globalScale;
+                  strokeStyle = '#fff';
+              }
+          }
       }
 
       ctx.globalAlpha = opacity;
@@ -357,7 +425,16 @@ export const ProcedurePanel = () => {
       ctx.lineTo(end.x!, end.y!);
       ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = lineWidth;
+
+      // Dashed line for TRUE/FALSE edges (Checking label)
+      if (link.label === 'TRUE' || link.label === 'FALSE') {
+          ctx.setLineDash([2, 2]);
+      } else {
+          ctx.setLineDash([]);
+      }
+
       ctx.stroke();
+      ctx.setLineDash([]); // Reset
 
       // Label
       if (link.label) {
@@ -377,7 +454,7 @@ export const ProcedurePanel = () => {
       }
       ctx.globalAlpha = 1;
 
-  }, [activeStepId, highlightSet]);
+  }, [highlightSet, highlightedPath]);
 
   // Handle Node Hover for Tooltip & Highlight
   const handleNodeHover = useCallback((node: CustomNode | null) => {
@@ -560,11 +637,23 @@ export const ProcedurePanel = () => {
 
                 {stepOptions.type === 'DECISION' && (
                     <>
-                        <button className="dcs-btn" style={{ borderColor: '#22c55e', color: '#22c55e' }} onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}>
-                            YES (TRUE)
+                        <button
+                            className="dcs-btn"
+                            style={{ borderColor: '#22c55e', color: '#22c55e' }}
+                            onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}
+                            onMouseEnter={() => setHighlightedPath('TRUE')}
+                            onMouseLeave={() => setHighlightedPath(null)}
+                        >
+                            TRUE
                         </button>
-                        <button className="dcs-btn" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}>
-                            NO (FALSE)
+                        <button
+                            className="dcs-btn"
+                            style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                            onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}
+                            onMouseEnter={() => setHighlightedPath('FALSE')}
+                            onMouseLeave={() => setHighlightedPath(null)}
+                        >
+                            FALSE
                         </button>
                     </>
                 )}
@@ -573,6 +662,16 @@ export const ProcedurePanel = () => {
                         <button className="dcs-btn" onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
                             NEXT STEP
                         </button>
+                )}
+
+                {stepOptions.type === 'END' && (
+                     <button
+                        className="dcs-btn"
+                        style={{ borderColor: '#22c55e', color: '#22c55e' }}
+                        onClick={() => useSimulationStore.setState({ simulationEnded: true })}
+                     >
+                        COMPLETE SCENARIO
+                    </button>
                 )}
 
                     {stepOptions.type === 'NONE' && (

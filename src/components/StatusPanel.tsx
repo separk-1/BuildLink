@@ -146,7 +146,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Reactor Coolant Pump (RCP) - Positioned to the right of Primary Flow */}
       <circle cx="245" cy="380" r="18" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="245" y="440" textAnchor="middle" fill="#94a3b8" fontSize="12">
+      <text x="245" y="415" textAnchor="middle" fill="#94a3b8" fontSize="12">
         RCP
         <title>RCP (Reactor Cooler Pump)</title>
       </text>
