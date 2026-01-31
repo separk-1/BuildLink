@@ -416,7 +416,16 @@ export const ProcedurePanel = () => {
       let lineWidth = 1 / globalScale;
       let opacity = 0.3; // Default visible (was 0.1)
 
-      if (isRelevant) {
+      const isIncidentLink = incidentView && (
+          start.type.startsWith('LER_') || end.type.startsWith('LER_')
+      );
+
+      if (isIncidentLink) {
+          // Incident View Override: Always show incident links in red
+          opacity = 1;
+          strokeStyle = '#f87171';
+          lineWidth = 2 / globalScale;
+      } else if (isRelevant) {
           // Explicitly exclude 'next' edges from being highlighted even if endpoints are in highlightSet
           if (link.label === 'next') {
               // Reset to default dim style
@@ -471,13 +480,13 @@ export const ProcedurePanel = () => {
               ctx.font = `${fontSize}px Sans-Serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillStyle = isRelevant ? '#fff' : 'rgba(100, 116, 139, 0.5)';
+              ctx.fillStyle = (isRelevant || isIncidentLink) ? '#fff' : 'rgba(100, 116, 139, 0.5)';
               ctx.fillText(link.label, midX, midY);
           }
       }
       ctx.globalAlpha = 1;
 
-  }, [highlightSet, highlightedPath]);
+  }, [highlightSet, highlightedPath, incidentView]);
 
   // Handle Node Hover for Tooltip & Highlight
   const handleNodeHover = useCallback((node: CustomNode | null) => {
