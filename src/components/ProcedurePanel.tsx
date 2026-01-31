@@ -241,8 +241,6 @@ export const ProcedurePanel = () => {
 
       // 3. Incident Traversal (Only if incidentView is ON)
       if (incidentView) {
-           const activeIds = Array.from(set);
-
            // Find Parent Components for active Controls/Indicators
            // Direction: Component (Parent) -> Control (Child)
            // We look for links where target is in activeIds (is a Control) and source is a Component.
