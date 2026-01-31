@@ -88,8 +88,9 @@ export const ProcedurePanel = () => {
   const [autoFocus, setAutoFocus] = useState(true);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
 
-  // Tooltip State
+  // Tooltip & Highlight State
   const [hoverTooltip, setHoverTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -149,27 +150,50 @@ export const ProcedurePanel = () => {
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {
       const set = new Set<string>();
-      if (!activeStepId) return set;
 
-      set.add(activeStepId);
+      // Determine Source Node for Highlighting
+      // Priority: Hovered Step Node > Active Step Node
+      let sourceId: string | null = activeStepId;
+      if (hoveredNodeId && hoveredNodeId.startsWith('pc_st_')) {
+          sourceId = hoveredNodeId;
+      }
 
-      // Add related nodes (neighbors) to the set so they are NOT faded
-      // We look for outgoing edges from activeStepId
-      if (graphData.links.length > 0) {
+      if (!sourceId) return set;
+      set.add(sourceId);
+
+      // Analyze Links from Source
+      const sourceLinks = graphData.links.filter(l => {
+          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+          return sId === sourceId;
+      });
+
+      // Find target class for chain highlighting
+      // Rule: Find 'verify' edge (or fallback to any non-next edge), get its class_num
+      const verifyLink = sourceLinks.find(l => l.label === 'verify');
+      // If verify exists, use it. Else try first non-next edge.
+      const targetLink = verifyLink || sourceLinks.find(l => l.label !== 'next' && (l as any).type !== 'next');
+
+      if (targetLink && targetLink.class_num) {
+          const targetClass = targetLink.class_num;
+
+          // Add all edges/nodes belonging to this class (Chain Highlight)
+          // Excluding 'next' edges
           graphData.links.forEach(l => {
-              const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-              const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
+              if (l.class_num === targetClass && l.label !== 'next' && (l as any).type !== 'next') {
+                  const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+                  const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
 
-              if (sId === activeStepId) {
+                  set.add(sId as string);
                   set.add(tId as string);
               }
-              // Optional: incoming edges? Usually procedures flow forward, but we might want context.
-              // For now, let's just do outgoing (dependencies/logic)
           });
+      } else {
+          // Fallback (e.g. step with only 'next'): Just highlight itself (already added)
+          // Or maybe highlight immediate non-next neighbors if any (but we filtered above)
       }
 
       return set;
-  }, [activeStepId, graphData]);
+  }, [activeStepId, hoveredNodeId, graphData]);
 
 
   // Analyze Current Step Options (Memoized)
@@ -236,6 +260,9 @@ export const ProcedurePanel = () => {
   useEffect(() => {
     if (!autoFocus || !activeStepId || !fgRef.current || highlightSet.size === 0) return;
 
+    // Only auto-focus on active step logic, not on temporary hover
+    if (hoveredNodeId) return;
+
     // Filter nodes that are in the highlight set
     const relevantNodes = graphData.nodes.filter(n => highlightSet.has(n.id));
 
@@ -256,18 +283,16 @@ export const ProcedurePanel = () => {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [activeStepId, autoFocus, highlightSet, graphData]);
+  }, [activeStepId, autoFocus, highlightSet, graphData, hoveredNodeId]);
 
 
   const paintNode = useCallback((node: CustomNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isActive = node.id === activeStepId;
-    const isHighlighted = highlightSet.has(node.id); // Active OR Neighbor
+    const isHighlighted = highlightSet.has(node.id); // Active OR Neighbor/Chain
     const label = node.name;
     const fontSize = 12 / globalScale;
 
     // Opacity Logic
-    // If set has items, fade others.
-    // However, if we are in "Active Step" mode, we want Active AND Neighbors to be opaque.
     const opacity = isHighlighted ? 1 : 0.2;
     ctx.globalAlpha = opacity;
 
@@ -354,8 +379,12 @@ export const ProcedurePanel = () => {
 
   }, [activeStepId, highlightSet]);
 
-  // Handle Node Hover for Tooltip
+  // Handle Node Hover for Tooltip & Highlight
   const handleNodeHover = useCallback((node: CustomNode | null) => {
+      // 1. Set Highlight State
+      setHoveredNodeId(node ? node.id : null);
+
+      // 2. Tooltip Logic
       if (node && node.type === 'PC_ST') {
           const desc = getProcedureDescription(node.id, procedureMap);
           if (desc && fgRef.current) {
