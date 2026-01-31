@@ -20,7 +20,7 @@ The user interface is strictly divided into four functional areas to support the
 1.  **Status Panel (Top-Left)**: Read-only display. Contains the **Mimic Diagram** (visualizing flow paths) and the **Annunciator Grid** (alarm tiles).
 2.  **Control Panel (Bottom-Left)**: Interactive area. Contains toggles, sliders, and trip buttons for the Reactor, Steam Generator (SG), and Turbine.
 3.  **AI Advisor (Top-Right)**: A Chatbot interface powered by **Google Gemini**. It uses **GraphRAG** (Graph-Retrieval Augmented Generation) to answer questions based on the current plant state and procedures.
-4.  **Procedure Panel (Bottom-Right)**: A dynamic visualization of the **Knowledge Graph**. It maps operational procedures into a network of steps, logic, and components.
+4.  **Procedure Panel (Bottom-Right)**: A dynamic visualization of the **Knowledge Graph**. It maps operational procedures into a network of steps, logic, and components, serving as the "Operator's Map."
 
 ---
 
@@ -61,7 +61,7 @@ $$
 ### Procedure Rules Engine
 Certain scenario events are deterministic to ensure training consistency.
 *   **Driver**: `SCENARIO_LOGIC.md` and `procedure_time.csv`.
-*   **Mechanism**: When a specific Procedure Step is activated (e.g., "Step 5"), the engine looks up target values in the CSV.
+*   **Mechanism**: When a specific Procedure Step is activated (e.g., "Step 5") by the operator, the engine looks up target values in the CSV.
 *   **Transition**: The system linearly interpolates variables (e.g., Temperature, Flow) to the target values over 3-5 seconds. This allows the scenario to "force" specific outcomes (like a successful recovery) regardless of the precise physics inputs, ensuring the training narrative holds.
 
 ---
@@ -73,20 +73,21 @@ We have digitized the standard operating procedure for LOFW into a **Knowledge G
 ### Graph Structure
 The graph consists of **Entities (Nodes)** and **Relationships (Edges)**:
 
-*   **Nodes**:
+*   **Nodes (What is involved?)**:
     *   `PC_ST` (Procedure Step): e.g., "STEP 1", "STEP 2".
     *   `PC_LO` (Logic): e.g., "IF FW Flow < 500".
     *   `CT` (Component/Controller): e.g., "FW Pump Switch".
     *   `IC` (Indicator/Sensor): e.g., "FW Flow Meter".
-*   **Edges**:
+    *   `LER` (Licensee Event Report): Historic failure data (visible in Incident View).
+*   **Edges (What is the procedure?)**:
     *   `verify`: Step -> Sensor (Check a value).
     *   `action`: Step -> Component (Press a button).
     *   `next`: Step -> Step (Sequence).
 
 ### Integration Features
-1.  **Interactive Walkthrough**: The user clicks "NEXT STEP", "CONFIRM CHECK", or "YES/NO" buttons to advance the procedure.
+1.  **Operator-Driven Walkthrough**: The user clicks "NEXT STEP", "CONFIRM CHECK", or "YES/NO" buttons to advance the procedure. This manual confirmation reinforces procedural adherence.
 2.  **Auto-Focus**: The graph automatically zooms and centers on the **Active Step** (`activeStepId`) to guide the operator's attention.
-3.  **State Linking**: The active step triggers the **Procedure Rules Engine** to update the plant state (as described in Sec 3), creating a responsive environment.
+3.  **Incident View**: Highlights connected failure modes (Step -> Control -> Component -> Incident) to provide context.
 
 ---
 
