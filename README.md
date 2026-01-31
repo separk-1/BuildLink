@@ -10,13 +10,13 @@ It integrates **graph-based procedural knowledge**, **AI-powered conversational 
 This repository includes a **live web-based demonstrator**, validated using a **nuclear power plant Loss of Feedwater (LOFW)** scenario as a representative safety-critical use case.
 
 ![BuildLink Live Demonstrator](./images/buildlink_overview.png)
+*Live web-based demonstrator showing the control room interface, AI advisor, and procedure knowledge graph.*
 
 ---
 
 ## 🔗 Links
 
 * **Live Demonstrator:** [https://buildlink-drab.vercel.app/](https://buildlink-drab.vercel.app/)
-* **Source Code:** [https://github.com/separk-1/BuildLink](https://github.com/separk-1/BuildLink)
 
 ---
 
