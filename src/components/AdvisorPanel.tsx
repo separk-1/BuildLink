@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { askGemini } from '../utils/gemini';
 import { useSimulationStore } from '../store/simulationStore';
 import { useGraphData } from '../hooks/useGraphData';
@@ -10,6 +10,14 @@ export const AdvisorPanel = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const simState = useSimulationStore();
   const { entityCsv, relationshipCsv, loading: graphLoading } = useGraphData();
@@ -65,7 +73,18 @@ export const AdvisorPanel = () => {
       <div className="panel-content" style={{ flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
 
         {/* Chat History */}
-        <div style={{ flex: 1, padding: '10px', overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div
+          ref={chatRef}
+          style={{
+            flex: 1,
+            padding: '10px',
+            overflowY: 'auto',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}
+        >
             {messages.map((msg, idx) => (
                 <div key={idx} style={{
                     alignSelf: msg.sender === 'User' ? 'flex-end' : 'flex-start',

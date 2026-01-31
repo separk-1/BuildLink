@@ -15,10 +15,16 @@
 
   --border-color: #475569; /* slate-600 */
 
-  /* Dimensions */
-  --panel-gap: 8px;
+  /* Dimensions - Fluid Spacing */
+  --panel-gap: clamp(8px, 1vh, 12px);
   --radius: 6px;
   --header-height: 28px;
+
+  /* Fluid Typography */
+  --font-xs: clamp(0.6rem, 1vw, 0.7rem);
+  --font-sm: clamp(0.7rem, 1vw, 0.8rem);
+  --font-base: clamp(0.8rem, 1vw, 0.9rem);
+  --font-lg: clamp(0.9rem, 1vw, 1rem);
 }
 
 * {
@@ -31,39 +37,87 @@ body {
   background-color: var(--bg-app);
   color: var(--text-main);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
 }
 
-/* Main Layout Grid */
+/*
+   Responsive Layout Implementation
+   Strategy:
+   - Desktop: Fixed height (100vh), Internal Scroll, 2-Column Grid (65/35 ratio)
+   - Mobile (<900px): Auto height, Global Scroll, 1-Column Stack
+*/
+
 .app-container {
   display: grid;
-  grid-template-columns: 65fr 35fr; /* 65% Sim, 35% Support */
-  grid-template-rows: 1fr;
   width: 100%;
-  height: 100%;
   padding: var(--panel-gap);
   gap: var(--panel-gap);
+
+  /* Mobile First Default (Stack) */
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto; /* Sim / Support */
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
-.col-sim {
-  display: grid;
-  grid-template-rows: 65fr 35fr; /* 65% Status, 35% Control */
-  gap: var(--panel-gap);
-  height: 100%;
-  min-height: 0; /* Prevent overflow */
+/* Desktop Viewport Logic (>900px) */
+@media (min-width: 900px) {
+  .app-container {
+    height: 100vh; /* Fixed viewport height */
+    overflow: hidden; /* Prevent global scroll */
+
+    /*
+       User Requirement: "grid based ... auto-fit / minmax"
+       We use minmax to enforce the minimum widths, and auto-fit ensures it wraps if needed.
+       However, to maintain the desired 65/35 ratio when space permits, we explicitly define it here.
+       If the screen width drops below ~900px, the Media Query handles the switch to stack.
+
+       We can combine this with minmax to ensure robustness within the grid tracks.
+    */
+    grid-template-columns: minmax(500px, 65fr) minmax(300px, 35fr);
+    grid-template-rows: 1fr;
+  }
 }
 
-.col-support {
-  display: grid;
-  grid-template-rows: 40fr 60fr; /* 40% Advisor, 60% Procedures */
+/* --- Column Wrappers --- */
+
+.col-sim, .col-support {
+  display: flex;
+  flex-direction: column;
   gap: var(--panel-gap);
-  height: 100%;
+  min-width: 0; /* Crucial for nested flex/grid overflow */
   min-height: 0;
 }
 
-/* Panel Window Style */
+/*
+   Internal Panel Distributions (Flexbox with weights)
+   We replace the rigid grid-template-rows with flex-grow
+*/
+
+/* Simulator Column: Status (Top) vs Control (Bottom) */
+.col-sim .status-panel {
+  flex: 65; /* Roughly 65% vertical space */
+  min-height: 350px; /* Ensure usability */
+}
+
+.col-sim .control-panel {
+  flex: 35;
+  min-height: 200px;
+}
+
+/* Support Column: Advisor (Top) vs Procedure (Bottom) */
+.col-support .advisor-panel {
+  flex: 40;
+  min-height: 300px; /* Chat needs space */
+}
+
+.col-support .procedure-panel {
+  flex: 60;
+  min-height: 300px; /* Graph needs space */
+}
+
+/* --- Panel Component Styles --- */
+
 .panel-container {
   background-color: var(--bg-panel);
   border: 1px solid var(--border-color);
@@ -73,12 +127,16 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+
+  /* Requirement: min-width/height 0 */
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Window Header */
 .panel-title {
   height: var(--header-height);
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
@@ -94,11 +152,12 @@ body {
 }
 
 .panel-content {
-  flex: 1;
+  flex: 1; /* Take remaining height */
   padding: 12px;
   display: flex;
   overflow: auto; /* Enable scroll if needed */
   position: relative;
+  min-height: 0; /* Important for nested scrolling */
 }
 
 /* --- Component Styles --- */
@@ -109,13 +168,14 @@ body {
   border-radius: var(--radius);
   background-color: var(--bg-panel-light);
   color: var(--text-main);
-  font-size: 0.75rem;
+  font-size: var(--font-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   padding: 8px;
   text-align: center;
   user-select: none;
+  white-space: nowrap; /* Prevent button text wrap */
 }
 .dcs-btn:hover:not(:disabled) {
   filter: brightness(1.2);
@@ -152,7 +212,7 @@ body {
 .dcs-slider-label {
   display: flex;
   justify-content: space-between;
-  font-size: 0.7rem;
+  font-size: var(--font-xs);
   color: var(--text-muted);
 }
 .dcs-slider {
@@ -184,7 +244,7 @@ body {
 /* Annunciators */
 .annunciator-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); /* Responsive Grid */
   gap: 6px;
   width: 100%;
   margin-bottom: 12px;
@@ -198,7 +258,7 @@ body {
   border-radius: 4px;
 }
 .annunciator-header {
-  font-size: 0.6rem;
+  font-size: 0.5rem; /* Very small fixed */
   text-align: center;
   color: var(--text-muted);
   font-weight: 800;
@@ -211,7 +271,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
   border: 1px solid #000;
   background-color: #000;
@@ -219,6 +279,8 @@ body {
   text-align: center;
   transition: all 0.2s;
   box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
+  padding: 2px;
+  word-break: break-word; /* Prevent overflow */
 }
 .annunciator-tile.active {
   background-color: var(--color-danger);
@@ -243,13 +305,13 @@ body {
 }
 .value-row:last-child { border-bottom: none; }
 .value-label {
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   color: var(--text-muted);
 }
 .value-data {
   font-family: 'Roboto Mono', 'Consolas', monospace;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--font-base);
   color: var(--color-info);
 }
 .value-data.unit {
@@ -273,10 +335,11 @@ body {
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  min-width: 0;
 }
 .control-col-header {
   text-align: center;
-  font-size: 0.75rem;
+  font-size: var(--font-sm);
   font-weight: 700;
   color: var(--text-muted);
   border-bottom: 2px solid var(--border-color);
