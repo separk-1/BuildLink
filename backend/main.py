@@ -1,9 +1,17 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import requests
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class ChatRequest(BaseModel):
     question: str
@@ -49,7 +57,6 @@ def chat_with_gemini(request: ChatRequest):
         response.raise_for_status()
         data = response.json()
 
-        # Extract text safely
         try:
             return {"answer": data["candidates"][0]["content"]["parts"][0]["text"]}
         except (KeyError, IndexError):
