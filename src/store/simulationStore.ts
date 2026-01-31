@@ -252,7 +252,7 @@ const INITIAL_STATE = {
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   ...INITIAL_STATE,
-  scenarioPreset: 'cv',
+  scenarioPreset: 'hard',
   trainingMode: true,
   activeStepId: 'pc_st_01_01', // Start at Step 1.1
   stepHistory: [],

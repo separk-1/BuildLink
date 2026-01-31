@@ -47,7 +47,7 @@ const parseProcedureCSV = (csv: string) => {
 
         if (stepKey && row.description) {
             // Map the raw ID from CSV (e.g. "pc_st_01_01" OR "1_1")
-            map.set(stepKey, row.description);
+            map.set(stepKey, row.description.replace(/"/g, ''));
         }
     });
     return map;
@@ -239,8 +239,59 @@ export const ProcedurePanel = () => {
           });
       }
 
+      // 3. Incident Traversal (Only if incidentView is ON)
+      if (incidentView) {
+           // Find Parent Components for active Controls/Indicators
+           // Direction: Component (Parent) -> Control (Child)
+           // We look for links where target is in activeIds (is a Control) and source is a Component.
+           const parentComponents = new Set<string>();
+           const incidentQueue: string[] = [];
+
+           graphData.links.forEach(l => {
+               const sId = getId(l.source);
+               const tId = getId(l.target);
+
+               // Check if target is a Control/Indicator we are currently highlighting
+               if (set.has(tId)) {
+                   // Check if source is a component (mc_*, sy_*)
+                   if (sId.startsWith('mc_') || sId.startsWith('sy_')) {
+                        parentComponents.add(sId);
+                        set.add(sId); // Add Component to highlight
+                        incidentQueue.push(sId);
+                   }
+               }
+           });
+
+           // BFS to find connected LER nodes
+           const visitedIncident = new Set<string>(incidentQueue);
+
+           while (incidentQueue.length > 0) {
+               const currId = incidentQueue.shift()!;
+
+               // Find neighbors of currId that are LER nodes
+               graphData.links.forEach(l => {
+                   const sId = getId(l.source);
+                   const tId = getId(l.target);
+
+                   let nextId = null;
+                   if (sId === currId) nextId = tId;
+                   else if (tId === currId) nextId = sId;
+
+                   if (nextId) {
+                       if (nextId.startsWith('ler_')) {
+                           if (!visitedIncident.has(nextId)) {
+                               visitedIncident.add(nextId);
+                               set.add(nextId);
+                               incidentQueue.push(nextId);
+                           }
+                       }
+                   }
+               });
+           }
+      }
+
       return set;
-  }, [activeStepId, hoveredNodeId, graphData]);
+  }, [activeStepId, hoveredNodeId, graphData, incidentView]);
 
 
   // Analyze Current Step Options (Memoized)
@@ -421,10 +472,17 @@ export const ProcedurePanel = () => {
       );
 
       if (isIncidentLink) {
-          // Incident View Override: Always show incident links in red
-          opacity = 1;
-          strokeStyle = '#f87171';
-          lineWidth = 2 / globalScale;
+          if (isRelevant) {
+              // Highlighted Incident Link
+              opacity = 1;
+              strokeStyle = '#f87171';
+              lineWidth = 2 / globalScale;
+          } else {
+              // Unconnected Incident Link (Dimmed but Red)
+              opacity = 0.2;
+              strokeStyle = '#f87171';
+              lineWidth = 1 / globalScale;
+          }
       } else if (isRelevant) {
           // Explicitly exclude 'next' edges from being highlighted even if endpoints are in highlightSet
           if (link.label === 'next') {
@@ -536,13 +594,27 @@ export const ProcedurePanel = () => {
             )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-             <button
-                className="dcs-btn"
+            <div
                 onClick={() => setIncidentView(!incidentView)}
-                style={{ padding: '2px 8px', fontSize: '0.6rem', background: incidentView ? '#ef4444' : 'transparent', borderColor: incidentView ? '#ef4444' : '' }}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+                    opacity: 1, padding: '0 8px'
+                }}
             >
-                INCIDENT VIEW: {incidentView ? 'ON' : 'OFF'}
-            </button>
+                <span style={{ fontSize: '0.6rem', color: incidentView ? '#f87171' : '#94a3b8', fontWeight: 'bold' }}>INCIDENT VIEW</span>
+                <div style={{
+                    width: '24px', height: '12px', borderRadius: '6px',
+                    backgroundColor: incidentView ? 'rgba(248, 113, 113, 0.3)' : '#334155',
+                    position: 'relative', transition: 'background-color 0.2s',
+                    border: '1px solid', borderColor: incidentView ? '#f87171' : '#475569'
+                }}>
+                    <div style={{
+                        position: 'absolute', top: '1px', left: incidentView ? '13px' : '1px',
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        backgroundColor: incidentView ? '#f87171' : '#94a3b8', transition: 'left 0.2s'
+                    }}></div>
+                </div>
+            </div>
             <button
                 className="dcs-btn"
                 onClick={() => setAutoFocus(!autoFocus)}
