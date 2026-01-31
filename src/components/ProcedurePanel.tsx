@@ -162,14 +162,39 @@ export const ProcedurePanel = () => {
       if (!sourceId) return set;
       set.add(sourceId);
 
-      // Analyze Links from Source
-      const sourceLinks = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === sourceId;
-      });
+      // Helper to safely get node ID
+      const getId = (node: string | CustomNode) => typeof node === 'object' ? node.id : node;
 
-      // Find target class for chain highlighting
-      // Rule: Find 'verify' edge (or fallback to any non-next edge), get its class_num
+      // Analyze Links from Source
+      const sourceLinks = graphData.links.filter(l => getId(l.source) === sourceId);
+
+      // 1. Check for 2-Hop Conditional Chain (Step -> Check -> Indicator -> Is -> Condition -> TRUE/FALSE)
+      const checkLink = sourceLinks.find(l => l.label === 'check_if');
+      if (checkLink) {
+          const indicatorId = getId(checkLink.target);
+          const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
+
+          // Find 'is' edge from Indicator
+          const isLink = indicatorLinks.find(l => l.label === 'is' || l.label === 'is_below' || l.label === 'is_over');
+
+          if (isLink) {
+              const conditionId = getId(isLink.target);
+              // Check if Condition Node has TRUE/FALSE edges
+              const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
+              const hasDecision = conditionLinks.some(l => l.label === 'TRUE' || l.label === 'FALSE');
+
+              if (hasDecision) {
+                  // Add Entire Chain to Highlight Set
+                  set.add(indicatorId);
+                  set.add(conditionId);
+                  conditionLinks.forEach(l => set.add(getId(l.target)));
+                  return set;
+              }
+          }
+      }
+
+
+      // 2. Fallback: Standard Verify Chain
       const verifyLink = sourceLinks.find(l => l.label === 'verify');
       // If verify exists, use it. Else try first non-next edge.
       const targetLink = verifyLink || sourceLinks.find(l => l.label !== 'next' && (l as any).type !== 'next');
@@ -181,16 +206,13 @@ export const ProcedurePanel = () => {
           // Excluding 'next' edges
           graphData.links.forEach(l => {
               if (l.class_num === targetClass && l.label !== 'next' && (l as any).type !== 'next') {
-                  const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-                  const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
+                  const sId = getId(l.source);
+                  const tId = getId(l.target);
 
-                  set.add(sId as string);
-                  set.add(tId as string);
+                  set.add(sId);
+                  set.add(tId);
               }
           });
-      } else {
-          // Fallback (e.g. step with only 'next'): Just highlight itself (already added)
-          // Or maybe highlight immediate non-next neighbors if any (but we filtered above)
       }
 
       return set;
@@ -201,69 +223,49 @@ export const ProcedurePanel = () => {
   const stepOptions = useMemo(() => {
       if (!activeStepId || graphData.links.length === 0) return { type: 'NONE' };
 
+      // Helper to safely get target ID
+      const getId = (node: string | CustomNode) => typeof node === 'object' ? node.id : node;
+      const getTarget = (l?: CustomLink) => l ? getId(l.target) : undefined;
+
       // Find all outgoing links from activeStepId
-      // Note: react-force-graph converts source to object, so we check ID safely
-      const links = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === activeStepId;
-      });
+      const links = graphData.links.filter(l => getId(l.source) === activeStepId);
 
       const verifyLink = links.find(l => l.label === 'verify');
-      const trueLink = links.find(l => l.label === 'true_then');
-      const falseLink = links.find(l => l.label === 'false_then');
-      const ifLink = links.find(l => l.label === 'if');
+      const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE');
+      const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE');
       const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
-      const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if'].includes(l.label));
+      const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if', 'check_if'].includes(l.label));
 
-      // Helper to safely get target ID
-      const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
-
-      // 1. Direct Decision (Check-If)
+      // 1. Direct Decision (Check-If) - 1 Hop
       if (trueLink || falseLink) {
           return {
               type: 'DECISION',
               trueNode: getTarget(trueLink),
-              falseNode: getTarget(falseLink),
-              ifLink
+              falseNode: getTarget(falseLink)
           };
       }
 
-      // 2. Lookahead Decision (Step -> ... -> Condition -> True/False)
-      const chainLinks = graphData.links.filter(l => {
-          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-          return sId === activeStepId || highlightSet.has(sId as string);
-      });
+      // 2. Indirect Decision (Step -> check_if -> Indicator -> is -> Condition -> TRUE/FALSE) - 2 Hops
+      const checkLink = links.find(l => l.label === 'check_if');
+      if (checkLink) {
+          const indicatorId = getTarget(checkLink);
+          const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
+          const isLink = indicatorLinks.find(l => l.label === 'is' || l.label === 'is_below' || l.label === 'is_over');
 
-      const conditionNodeLink = chainLinks.find(l => {
-          const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
-          const targetNode = graphData.nodes.find(n => n.id === tId);
-          if (!targetNode) return false;
+          if (isLink) {
+              const conditionId = getTarget(isLink);
+              const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
 
-          const outgoing = graphData.links.filter(out => {
-              const outSId = typeof out.source === 'object' ? (out.source as CustomNode).id : out.source;
-              return outSId === tId;
-          });
+              const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
+              const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
 
-          return outgoing.some(out => out.label === 'TRUE' || out.label === 'FALSE');
-      });
-
-      if (conditionNodeLink) {
-          const tId = typeof conditionNodeLink.target === 'object' ? (conditionNodeLink.target as CustomNode).id : conditionNodeLink.target;
-          const conditionLinks = graphData.links.filter(l => {
-               const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
-               return sId === tId;
-          });
-
-          const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
-          const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
-
-          if (cTrueLink || cFalseLink) {
-               return {
-                  type: 'DECISION',
-                  trueNode: getTarget(cTrueLink),
-                  falseNode: getTarget(cFalseLink),
-                  conditionNodeId: tId
-              };
+              if (cTrueLink || cFalseLink) {
+                  return {
+                      type: 'DECISION',
+                      trueNode: getTarget(cTrueLink),
+                      falseNode: getTarget(cFalseLink)
+                  };
+              }
           }
       }
 
@@ -287,7 +289,7 @@ export const ProcedurePanel = () => {
 
       return { type: 'END' };
 
-  }, [activeStepId, graphData, highlightSet]);
+  }, [activeStepId, graphData]);
 
   // Find Step Name
   const activeStepName = useMemo(() => {
@@ -410,7 +412,7 @@ export const ProcedurePanel = () => {
       ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = lineWidth;
 
-      // Dashed line for TRUE/FALSE edges
+      // Dashed line for TRUE/FALSE edges (Checking label)
       if (link.label === 'TRUE' || link.label === 'FALSE') {
           ctx.setLineDash([4, 4]);
       } else {
@@ -438,7 +440,7 @@ export const ProcedurePanel = () => {
       }
       ctx.globalAlpha = 1;
 
-  }, [activeStepId, highlightSet, highlightedPath]);
+  }, [highlightSet, highlightedPath]);
 
   // Handle Node Hover for Tooltip & Highlight
   const handleNodeHover = useCallback((node: CustomNode | null) => {
