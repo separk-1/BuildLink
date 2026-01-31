@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { askGemini } from '../utils/gemini';
 import { useSimulationStore } from '../store/simulationStore';
 import { useGraphData } from '../hooks/useGraphData';
+import { FormattedText } from '../utils/markdown';
 
 export const AdvisorPanel = () => {
   const [messages, setMessages] = useState<{sender: 'AI' | 'User', text: string}[]>([
@@ -61,10 +62,10 @@ export const AdvisorPanel = () => {
             ONLINE
         </span>
       </div>
-      <div className="panel-content" style={{ flexDirection: 'column', padding: 0 }}>
+      <div className="panel-content" style={{ flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
 
         {/* Chat History */}
-        <div style={{ flex: 1, padding: '10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ flex: 1, padding: '10px', overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {messages.map((msg, idx) => (
                 <div key={idx} style={{
                     alignSelf: msg.sender === 'User' ? 'flex-end' : 'flex-start',
@@ -78,7 +79,7 @@ export const AdvisorPanel = () => {
                     whiteSpace: 'pre-wrap' // Handle multiline from AI
                 }}>
                     <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{msg.sender}</div>
-                    {msg.text}
+                    <FormattedText text={msg.text} />
                 </div>
             ))}
             {loading && <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic' }}>Thinking...</div>}
