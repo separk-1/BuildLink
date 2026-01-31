@@ -2,7 +2,7 @@
 
 **BuildLink — Research prototype submitted to the Nemetschek Innovation Award · CMU CEE**
 
-Contact: [seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu), [joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu)
+Contact: Seongeun Park ([seongeup@andrew.cmu.edu](mailto:seongeup@andrew.cmu.edu)), Joonsun Hwang ([joonsunh@andrew.cmu.edu](mailto:joonsunh@andrew.cmu.edu))
 
 BuildLink is a research prototype that provides **context-aware, queryable operational support** for complex infrastructure systems.
 It integrates **graph-based procedural knowledge**, **AI-powered conversational assistance**, and an **interactive control-room-style interface**.
