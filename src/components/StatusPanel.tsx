@@ -68,7 +68,7 @@ const SchematicView = ({ state }: { state: any }) => {
   const cPipeHot = "#ef4444"; // Red
   const cPipeCold = "#3b82f6"; // Blue
   const cComponent = "#1e293b"; // Slate 800
-  const cBorder = "#94a3b8"; // Slate 400
+  const cBorder = "#e2e8f0"; // Light Gray (Slate 200) for all other lines
   const cValveOpen = "#22c55e"; // Green
 
   // Dimensions
@@ -115,22 +115,22 @@ const SchematicView = ({ state }: { state: any }) => {
       <path d="M 300 380 L 190 380" fill="none" stroke={cPipeCold} strokeWidth="8" />
 
 
-      {/* Steam Lines */}
+      {/* Steam Lines - Use cBorder (Light Gray) */}
       {/* SG Top -> MSIV -> Header */}
       {/* SG Top (360, 180) -> Up to MSIV (360, 120) -> Up to Header (360, 80) -> Right */}
-      <path d="M 360 180 L 360 80 L 480 80" fill="none" stroke="#f8fafc" strokeWidth="6" />
+      <path d="M 360 180 L 360 80 L 480 80" fill="none" stroke={cBorder} strokeWidth="6" />
 
       {/* Header Vertical Distribution */}
-      <path d="M 480 80 L 480 300" fill="none" stroke="#f8fafc" strokeWidth="6" />
+      <path d="M 480 80 L 480 300" fill="none" stroke={cBorder} strokeWidth="6" />
 
       {/* Speed CV Branch (TSCV) - y=100 */}
-      <path d="M 480 100 L 650 100" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 480 100 L 650 100" fill="none" stroke={cBorder} strokeWidth="4" />
 
       {/* Load CV Branch (TLCV) - Moved to y=200 for uniform spacing */}
-      <path d="M 480 200 L 650 200" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 480 200 L 650 200" fill="none" stroke={cBorder} strokeWidth="4" />
 
       {/* Bypass CV Branch (TBCV) - y=300 */}
-      <path d="M 480 300 L 650 300" fill="none" stroke="#f8fafc" strokeWidth="4" />
+      <path d="M 480 300 L 650 300" fill="none" stroke={cBorder} strokeWidth="4" />
 
 
       {/* Feedwater Return */}
@@ -230,7 +230,7 @@ const SchematicView = ({ state }: { state: any }) => {
 // SVG Helpers
 // ----------------------------------------------------------------------------
 
-const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false, width }: any) => {
+const DigitalGauge = ({ x, y, label, value, unit, compact = false, width }: any) => {
     const w = width || (compact ? 80 : 100);
     return (
         <g transform={`translate(${x}, ${y})`}>
@@ -239,10 +239,10 @@ const DigitalGauge = ({ x, y, label, value, unit, warn = false, compact = false,
             <rect x="0" y="0" width={w} height="20" fill="#333" />
             <text x={w/2} y="14" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{label}</text>
 
-            {/* Value Background */}
-            <rect x="0" y="20" width={w} height="30" fill="#000" stroke={warn ? "#ef4444" : "#22c55e"} strokeWidth={warn ? 2 : 0} />
-            <text x={w/2} y="42" textAnchor="middle" fill={warn ? "#ef4444" : "#22c55e"} fontSize="16" fontWeight="bold" fontFamily="monospace">
-                {value} <tspan fontSize="9" fill="#666">{unit}</tspan>
+            {/* Value Background - Fixed Color (Green text on Black) */}
+            <rect x="0" y="20" width={w} height="30" fill="#000" stroke="#334155" strokeWidth="1" />
+            <text x={w/2} y="42" textAnchor="middle" fill="#22c55e" fontSize="16" fontWeight="bold" fontFamily="monospace">
+                {value} <tspan fontSize="9" fill="#94a3b8">{unit}</tspan>
             </text>
         </g>
     );
