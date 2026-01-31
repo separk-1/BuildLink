@@ -292,6 +292,43 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         }
         set({ procedureRules: rules });
         console.log('Loaded Procedure Rules:', rules.length);
+
+        // Apply Initial State (rule where after_action === '0' or '0_0')
+        // We look for a rule that applies to 'all' or default scenario.
+        // Assuming initialization is same for all or we pick 'all'.
+        const initRule = rules.find(r => (r.after_action === '0' || r.after_action === '0_0') && r.scenario === 'all');
+        if (initRule) {
+            const updates: any = {};
+            Object.entries(initRule.updates).forEach(([key, val]) => {
+                const stateKey = KEY_MAP[key];
+                if (!stateKey) return;
+
+                // Handle Booleans
+                if (val.toUpperCase() === 'TRUE') {
+                    updates[stateKey] = true;
+                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = false;
+                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = false;
+                } else if (val.toUpperCase() === 'FALSE') {
+                    updates[stateKey] = false;
+                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = true;
+                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = true;
+                } else {
+                    // Direct set, no transition for init
+                    const targetStr = val.startsWith('_') ? val.substring(1) : val;
+                    const target = parseFloat(targetStr);
+                    if (!isNaN(target)) {
+                        updates[stateKey] = target;
+                        // Special handling for FWCV to sync internal continuous state
+                        if (stateKey === 'fwcv_degree') {
+                            updates['fwcv_continuous'] = target;
+                        }
+                    }
+                }
+            });
+            console.log("Applied Initial State from CSV:", updates);
+            set(updates);
+        }
+
     } catch (e) {
         console.error('Failed to load procedure rules:', e);
     }
