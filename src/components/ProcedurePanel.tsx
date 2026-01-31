@@ -42,10 +42,27 @@ const parseProcedureCSV = (csv: string) => {
         const row: any = {};
         headers.forEach((h, i) => row[h.trim()] = values[i]?.trim());
         if (row.step_id && row.description) {
+            // Map the raw ID from CSV (e.g. "pc_st_01_01" OR "1_1")
             map.set(row.step_id, row.description);
         }
     });
     return map;
+};
+
+// Helper to normalize graph node ID to match CSV format if needed
+// Graph uses 'pc_st_01_01'. CSV might use '1_1' or 'pc_st_01_01'.
+const getProcedureDescription = (nodeId: string, map: Map<string, string>) => {
+    // 1. Try exact match
+    if (map.has(nodeId)) return map.get(nodeId);
+
+    // 2. Try normalizing 'pc_st_XX_YY' -> 'X_Y'
+    const match = nodeId.match(/pc_st_(\d+)_(\d+)/);
+    if (match) {
+        const shortId = `${parseInt(match[1], 10)}_${parseInt(match[2], 10)}`;
+        if (map.has(shortId)) return map.get(shortId);
+    }
+
+    return null;
 };
 
 
@@ -378,8 +395,9 @@ export const ProcedurePanel = () => {
           linkCanvasObjectMode={() => 'replace'}
           nodeLabel={(node: CustomNode) => {
               // Priority: Procedure Description -> Value -> Name
-              if (node.type === 'PC_ST' && procedureMap.has(node.id)) {
-                  return procedureMap.get(node.id) || node.name;
+              if (node.type === 'PC_ST') {
+                  const desc = getProcedureDescription(node.id, procedureMap);
+                  if (desc) return desc;
               }
               if (node.value && node.value.toLowerCase() !== 'na') {
                   return node.value;

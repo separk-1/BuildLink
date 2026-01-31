@@ -65,8 +65,8 @@ const AlarmTile = ({ label, active }: { label: string, active: boolean }) => (
 
 const SchematicView = ({ state }: { state: any }) => {
   // Colors
-  const cPipeHot = "#f9c1c1"; // Red
-  const cPipeCold = "#b9d3fd"; // Blue
+  const cPipeHot = "#ef4444"; // Red
+  const cPipeCold = "#3b82f6"; // Blue
   const cComponent = "#1e293b"; // Slate 800
   const cBorder = "#e2e8f0"; // Light Gray (Slate 200) for all other lines
   const cValveOpen = "#22c55e"; // Green
@@ -146,7 +146,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Reactor Coolant Pump (RCP) - Positioned to the right of Primary Flow */}
       <circle cx="245" cy="380" r="18" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
-      <text x="245" y="440" textAnchor="middle" fill="#94a3b8" fontSize="12">
+      <text x="245" y="415" textAnchor="middle" fill="#94a3b8" fontSize="12">
         RCP
         <title>RCP (Reactor Cooler Pump)</title>
       </text>
@@ -213,12 +213,12 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Primary Flow (Between Reactor and RCP) */}
       {/* NO TOOLTIP */}
-      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow, 1)} unit="m/s" width={90} />
+      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
       {/* MOVED UP to y=400 (was 420) to separate from FWCV at y=500. */}
       {/* NO TOOLTIP */}
-      <DigitalGauge x={320} y={400} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="m/s"
+      <DigitalGauge x={320} y={400} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
           warn={state.fw_low_flow} width={80} compact={true}
       />
 
