@@ -10,20 +10,11 @@ export const AdvisorPanel = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Use env var directly for display status
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
   const simState = useSimulationStore();
   const { entityCsv, relationshipCsv, loading: graphLoading } = useGraphData();
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    // Check API Key
-    if (!apiKey) {
-        setMessages(prev => [...prev, { sender: 'AI', text: 'API Key Missing (Check .env)' }]);
-        return;
-    }
 
     if (graphLoading) {
          setMessages(prev => [...prev, { sender: 'AI', text: 'System loading knowledge graph. Please wait...' }]);
@@ -56,7 +47,7 @@ export const AdvisorPanel = () => {
         const answer = await askGemini(userQuestion, context);
         setMessages(prev => [...prev, { sender: 'AI', text: answer }]);
     } catch (error) {
-        setMessages(prev => [...prev, { sender: 'AI', text: 'Connection failed. Please check API Key.' }]);
+        setMessages(prev => [...prev, { sender: 'AI', text: 'Connection failed. System offline.' }]);
     } finally {
         setLoading(false);
     }
@@ -66,8 +57,8 @@ export const AdvisorPanel = () => {
     <>
       <div className="panel-title">
         <span>AI ADVISOR (GraphRAG)</span>
-        <span style={{ fontSize: '0.6rem', color: apiKey ? '#22c55e' : '#eab308' }}>
-            {apiKey ? 'CONNECTED' : 'NO KEY'}
+        <span style={{ fontSize: '0.6rem', color: '#22c55e' }}>
+            ONLINE
         </span>
       </div>
       <div className="panel-content" style={{ flexDirection: 'column', padding: 0 }}>
