@@ -149,8 +149,7 @@ interface SimulationState {
 }
 
 // Helper to add noise
-const addNoise = (val: number, magnitude: number, trainingMode: boolean) => {
-    if (!trainingMode) return val; // Deterministic if trainingMode is OFF
+const addNoise = (val: number, magnitude: number) => {
     return val + (Math.random() - 0.5) * magnitude;
 };
 
@@ -550,7 +549,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates.time = new_time;
     updates.tick_count = new_tick_count;
 
-    const shouldUpdateDisplay = !s.trainingMode || (new_tick_count % 10 === 0);
+    const shouldUpdateDisplay = (new_tick_count % 10 === 0);
 
     // --- Rules: Time-based Triggers ---
     // 10sec rule is now triggered at start via loadProcedureRules.
@@ -571,12 +570,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     // Clamp reactivity 0-100
     const new_reactivity = Math.max(0, Math.min(100, s.reactivity + reactivity_change));
 
-    // RCP effects Flow
-    const target_pri_flow = s.rcp ? 45000 : 0;
-    const new_pri_flow = s.pri_flow + (target_pri_flow - s.pri_flow) * 0.05;
+    // RCP 
+    const new_pri_flow = s.pri_flow;
 
     // Core Temp Logic
-    const flow_factor = Math.max(0.1, new_pri_flow / 45000);
+    const flow_factor = 1.0;
     let target_core_t = 280 + (new_reactivity * 0.4) / flow_factor;
     target_core_t = Math.min(400, Math.max(20, target_core_t));
     const new_core_t = s.core_t + (target_core_t - s.core_t) * 0.02;
@@ -679,19 +677,19 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     if (shouldUpdateDisplay) {
         // Clamp display reactivity 0-100
-        const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5, s.trainingMode);
+        const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5);
         updates.display_reactivity = Math.max(0, Math.min(100, raw_reactivity));
 
-        updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 500, s.trainingMode);
-        updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0, s.trainingMode);
+        updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 500);
+        updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0);
 
-        const raw_fw_display = addNoise(updates.fw_flow ?? new_fw_flow, 20, s.trainingMode);
+        const raw_fw_display = addNoise(updates.fw_flow ?? new_fw_flow, 20);
         updates.display_fw_flow = Math.max(0, raw_fw_display);
 
-        const raw_sg_display = addNoise(updates.sg_level ?? new_sg_level, 0.5, s.trainingMode);
+        const raw_sg_display = addNoise(updates.sg_level ?? new_sg_level, 0.5);
         updates.display_sg_level = Math.max(0, raw_sg_display);
 
-        updates.display_steam_press = addNoise(updates.steam_press ?? new_press, 0.5, s.trainingMode);
+        updates.display_steam_press = addNoise(updates.steam_press ?? new_press, 0.5);
     }
 
     // --- Annunciator Logic ---
@@ -706,7 +704,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // Primary
     updates.rx_over_limit = final_reactivity > 102;
-    updates.core_temp_high = final_core_t > 400; // Updated Threshold
+    updates.core_temp_high = final_core_t > 400;
     updates.high_temp_high_rx_trip = updates.core_temp_high;
     updates.core_temp_low = final_core_t < 270 && final_reactivity > 10;
     updates.low_primary_coolant = final_pri_flow < 40000;

@@ -213,7 +213,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Primary Flow (Between Reactor and RCP) */}
       {/* NO TOOLTIP */}
-      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow, 1)} unit="m/s" width={90} />
+      <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/10, 1)} unit="m/s" width={90} />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
       {/* MOVED UP to y=400 (was 420) to separate from FWCV at y=500. */}
