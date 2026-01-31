@@ -91,6 +91,7 @@ export const ProcedurePanel = () => {
   // Tooltip & Highlight State
   const [hoverTooltip, setHoverTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [highlightedPath, setHighlightedPath] = useState<'TRUE' | 'FALSE' | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -214,9 +215,11 @@ export const ProcedurePanel = () => {
       const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
       const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if'].includes(l.label));
 
-      // 1. Decision (Check-If)
+      // Helper to safely get target ID
+      const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
+
+      // 1. Direct Decision (Check-If)
       if (trueLink || falseLink) {
-          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
           return {
               type: 'DECISION',
               trueNode: getTarget(trueLink),
@@ -225,9 +228,47 @@ export const ProcedurePanel = () => {
           };
       }
 
-      // 2. Verify
+      // 2. Lookahead Decision (Step -> ... -> Condition -> True/False)
+      const chainLinks = graphData.links.filter(l => {
+          const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+          return sId === activeStepId || highlightSet.has(sId as string);
+      });
+
+      const conditionNodeLink = chainLinks.find(l => {
+          const tId = typeof l.target === 'object' ? (l.target as CustomNode).id : l.target;
+          const targetNode = graphData.nodes.find(n => n.id === tId);
+          if (!targetNode) return false;
+
+          const outgoing = graphData.links.filter(out => {
+              const outSId = typeof out.source === 'object' ? (out.source as CustomNode).id : out.source;
+              return outSId === tId;
+          });
+
+          return outgoing.some(out => out.label === 'TRUE' || out.label === 'FALSE');
+      });
+
+      if (conditionNodeLink) {
+          const tId = typeof conditionNodeLink.target === 'object' ? (conditionNodeLink.target as CustomNode).id : conditionNodeLink.target;
+          const conditionLinks = graphData.links.filter(l => {
+               const sId = typeof l.source === 'object' ? (l.source as CustomNode).id : l.source;
+               return sId === tId;
+          });
+
+          const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
+          const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
+
+          if (cTrueLink || cFalseLink) {
+               return {
+                  type: 'DECISION',
+                  trueNode: getTarget(cTrueLink),
+                  falseNode: getTarget(cFalseLink),
+                  conditionNodeId: tId
+              };
+          }
+      }
+
+      // 3. Verify
       if (verifyLink) {
-           const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
            return {
                type: 'VERIFY',
                nextNode: getTarget(nextLink), // Proceed to next step after verification
@@ -235,10 +276,9 @@ export const ProcedurePanel = () => {
            };
       }
 
-      // 3. Standard Next
+      // 4. Standard Next
       if (nextLink || genericLink) {
           const link = nextLink || genericLink;
-          const getTarget = (l?: CustomLink) => typeof l?.target === 'object' ? (l.target as CustomNode).id : l?.target as string;
           return {
               type: 'STEP',
               nextNode: getTarget(link)
@@ -247,7 +287,7 @@ export const ProcedurePanel = () => {
 
       return { type: 'END' };
 
-  }, [activeStepId, graphData]);
+  }, [activeStepId, graphData, highlightSet]);
 
   // Find Step Name
   const activeStepName = useMemo(() => {
@@ -349,6 +389,18 @@ export const ProcedurePanel = () => {
           opacity = 1;
           strokeStyle = '#eab308'; // Unify all active highlights to Yellow
           lineWidth = 2 / globalScale;
+
+          // Dim non-selected paths if a path is highlighted via hover
+          if (highlightedPath) {
+              if (link.label === 'TRUE' && highlightedPath !== 'TRUE') opacity = 0.1;
+              if (link.label === 'FALSE' && highlightedPath !== 'FALSE') opacity = 0.1;
+          }
+
+          // Bold selected path
+          if (highlightedPath && link.label === highlightedPath) {
+              lineWidth = 4 / globalScale;
+              strokeStyle = '#fff';
+          }
       }
 
       ctx.globalAlpha = opacity;
@@ -357,7 +409,16 @@ export const ProcedurePanel = () => {
       ctx.lineTo(end.x!, end.y!);
       ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = lineWidth;
+
+      // Dashed line for TRUE/FALSE edges
+      if (link.label === 'TRUE' || link.label === 'FALSE') {
+          ctx.setLineDash([4, 4]);
+      } else {
+          ctx.setLineDash([]);
+      }
+
       ctx.stroke();
+      ctx.setLineDash([]); // Reset
 
       // Label
       if (link.label) {
@@ -377,7 +438,7 @@ export const ProcedurePanel = () => {
       }
       ctx.globalAlpha = 1;
 
-  }, [activeStepId, highlightSet]);
+  }, [activeStepId, highlightSet, highlightedPath]);
 
   // Handle Node Hover for Tooltip & Highlight
   const handleNodeHover = useCallback((node: CustomNode | null) => {
@@ -560,11 +621,23 @@ export const ProcedurePanel = () => {
 
                 {stepOptions.type === 'DECISION' && (
                     <>
-                        <button className="dcs-btn" style={{ borderColor: '#22c55e', color: '#22c55e' }} onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}>
-                            YES (TRUE)
+                        <button
+                            className="dcs-btn"
+                            style={{ borderColor: '#22c55e', color: '#22c55e' }}
+                            onClick={() => stepOptions.trueNode && setActiveStepId(stepOptions.trueNode)}
+                            onMouseEnter={() => setHighlightedPath('TRUE')}
+                            onMouseLeave={() => setHighlightedPath(null)}
+                        >
+                            TRUE
                         </button>
-                        <button className="dcs-btn" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}>
-                            NO (FALSE)
+                        <button
+                            className="dcs-btn"
+                            style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                            onClick={() => stepOptions.falseNode && setActiveStepId(stepOptions.falseNode)}
+                            onMouseEnter={() => setHighlightedPath('FALSE')}
+                            onMouseLeave={() => setHighlightedPath(null)}
+                        >
+                            FALSE
                         </button>
                     </>
                 )}
@@ -573,6 +646,16 @@ export const ProcedurePanel = () => {
                         <button className="dcs-btn" onClick={() => stepOptions.nextNode && setActiveStepId(stepOptions.nextNode)}>
                             NEXT STEP
                         </button>
+                )}
+
+                {stepOptions.type === 'END' && (
+                     <button
+                        className="dcs-btn"
+                        style={{ borderColor: '#22c55e', color: '#22c55e' }}
+                        onClick={() => useSimulationStore.setState({ simulationEnded: true })}
+                     >
+                        COMPLETE SCENARIO
+                    </button>
                 )}
 
                     {stepOptions.type === 'NONE' && (
