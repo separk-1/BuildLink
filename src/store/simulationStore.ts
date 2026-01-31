@@ -367,9 +367,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       let ended = false;
 
       matchingRules.forEach(rule => {
-          if (rule.status.toLowerCase() === 'end') {
-              ended = true;
-          }
+          // if (rule.status.toLowerCase() === 'end') {
+          //     ended = true;
+          // }
 
           Object.entries(rule.updates).forEach(([key, val]) => {
               const stateKey = KEY_MAP[key];

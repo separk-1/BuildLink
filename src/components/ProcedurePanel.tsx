@@ -83,8 +83,7 @@ const getNodeColor = (type: string) => {
 
 export const ProcedurePanel = () => {
   const fgRef = useRef<any>(undefined);
-  const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
-  const [procedureMap, setProcedureMap] = useState<Map<string, string>>(new Map());
+  // const [graphData, setGraphData] = useState<{ nodes: CustomNode[], links: CustomLink[] }>({ nodes: [], links: [] });
   const [autoFocus, setAutoFocus] = useState(true);
   const [containerDimensions, setContainerDimensions] = useState({ width: 800, height: 600 });
 
@@ -115,17 +114,16 @@ export const ProcedurePanel = () => {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Parse Data when available
-  useEffect(() => {
-    if (loading || !entityCsv || !relationshipCsv) return;
+  const procedureMap = useMemo(() => {
+      if (!procedureCsv) return new Map<string, string>();
+      return parseProcedureCSV(procedureCsv);
+  }, [procedureCsv]);
+
+  const graphData = useMemo(() => {
+    if (loading || !entityCsv || !relationshipCsv) return { nodes: [], links: [] };
 
     const entities = parseCSV(entityCsv);
     const relationships = parseCSV(relationshipCsv);
-
-    // Parse Procedure Descriptions
-    if (procedureCsv) {
-        setProcedureMap(parseProcedureCSV(procedureCsv));
-    }
 
     const nodes: CustomNode[] = entities.map((e: any) => ({
       id: e.entity_id,
@@ -145,8 +143,8 @@ export const ProcedurePanel = () => {
       return nodes.find(n => n.id === l.source) && nodes.find(n => n.id === l.target);
     });
 
-    setGraphData({ nodes, links });
-  }, [entityCsv, relationshipCsv, procedureCsv, loading]);
+    return { nodes, links };
+  }, [entityCsv, relationshipCsv, loading]);
 
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {
@@ -174,8 +172,11 @@ export const ProcedurePanel = () => {
           const indicatorId = getId(checkLink.target);
           const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
 
-          // Find 'is' edge from Indicator
-          const isLink = indicatorLinks.find(l => l.label === 'is' || l.label === 'is_below' || l.label === 'is_over');
+          // Find 'is' edge from Indicator that MATCHES the class of the checkLink (to handle shared indicators)
+          const isLink = indicatorLinks.find(l =>
+              (l.label === 'is' || l.label === 'is_below' || l.label === 'is_over') &&
+              (!checkLink.class_num || l.class_num === checkLink.class_num)
+          );
 
           if (isLink) {
               const conditionId = getId(isLink.target);
@@ -250,7 +251,12 @@ export const ProcedurePanel = () => {
       if (checkLink) {
           const indicatorId = getTarget(checkLink);
           const indicatorLinks = graphData.links.filter(l => getId(l.source) === indicatorId);
-          const isLink = indicatorLinks.find(l => l.label === 'is' || l.label === 'is_below' || l.label === 'is_over');
+
+          // Must match class_num to ensure we follow the correct scenario logic for this step
+          const isLink = indicatorLinks.find(l =>
+              (l.label === 'is' || l.label === 'is_below' || l.label === 'is_over') &&
+              (!checkLink.class_num || l.class_num === checkLink.class_num)
+          );
 
           if (isLink) {
               const conditionId = getTarget(isLink);
@@ -388,20 +394,28 @@ export const ProcedurePanel = () => {
       let opacity = 0.3; // Default visible (was 0.1)
 
       if (isRelevant) {
-          opacity = 1;
-          strokeStyle = '#eab308'; // Unify all active highlights to Yellow
-          lineWidth = 2 / globalScale;
+          // Explicitly exclude 'next' edges from being highlighted even if endpoints are in highlightSet
+          if (link.label === 'next') {
+              // Reset to default dim style
+              opacity = 0.3;
+              strokeStyle = '#475569';
+              lineWidth = 1 / globalScale;
+          } else {
+              opacity = 1;
+              strokeStyle = '#eab308'; // Unify all active highlights to Yellow
+              lineWidth = 2 / globalScale;
 
-          // Dim non-selected paths if a path is highlighted via hover
-          if (highlightedPath) {
-              if (link.label === 'TRUE' && highlightedPath !== 'TRUE') opacity = 0.1;
-              if (link.label === 'FALSE' && highlightedPath !== 'FALSE') opacity = 0.1;
-          }
+              // Dim non-selected paths if a path is highlighted via hover
+              if (highlightedPath) {
+                  if (link.label === 'TRUE' && highlightedPath !== 'TRUE') opacity = 0.1;
+                  if (link.label === 'FALSE' && highlightedPath !== 'FALSE') opacity = 0.1;
+              }
 
-          // Bold selected path
-          if (highlightedPath && link.label === highlightedPath) {
-              lineWidth = 4 / globalScale;
-              strokeStyle = '#fff';
+              // Bold selected path
+              if (highlightedPath && link.label === highlightedPath) {
+                  lineWidth = 4 / globalScale;
+                  strokeStyle = '#fff';
+              }
           }
       }
 
@@ -414,7 +428,7 @@ export const ProcedurePanel = () => {
 
       // Dashed line for TRUE/FALSE edges (Checking label)
       if (link.label === 'TRUE' || link.label === 'FALSE') {
-          ctx.setLineDash([4, 4]);
+          ctx.setLineDash([2, 2]);
       } else {
           ctx.setLineDash([]);
       }
