@@ -446,18 +446,25 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   setScenarioPreset: (preset) => set((state) => {
     // If Training Mode is ON, force Scenario C (hard) and ignore user selection
     if (state.trainingMode) {
+        const defaults = { ...INITIAL_STATE };
+        defaults.fw_pump = false; // Hard scenario defaults FWP to OFF
         return {
         scenarioPreset: 'hard',
-        ...INITIAL_STATE,
+        ...defaults,
         activeStepId: 'pc_st_01_01',
         stepHistory: []
         };
     }
 
     // If Training Mode is OFF, allow user-selected scenario (A/B/C)
+    const defaults = { ...INITIAL_STATE };
+    if (preset === 'pump' || preset === 'hard') {
+        defaults.fw_pump = false;
+    }
+
     return {
         scenarioPreset: preset,
-        ...INITIAL_STATE,
+        ...defaults,
         activeStepId: 'pc_st_01_01',
         stepHistory: []
     };
@@ -468,9 +475,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // When turning Training Mode ON, force Scenario C (hard)
     if (newMode) {
+        const defaults = { ...INITIAL_STATE };
+        defaults.fw_pump = false; // Hard scenario defaults FWP to OFF
         return {
         trainingMode: true,
-        scenarioPreset: 'hard'
+        scenarioPreset: 'hard',
+        ...defaults
         };
     }
 
@@ -482,9 +492,15 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   resetSimulation: () => {
     const s = get();
+    const defaults = { ...INITIAL_STATE };
+    // Apply Scenario Defaults
+    if (s.scenarioPreset === 'pump' || s.scenarioPreset === 'hard') {
+        defaults.fw_pump = false;
+    }
+
     // Re-trigger load if needed, or just reset state
     set({
-        ...INITIAL_STATE,
+        ...defaults,
         scenarioPreset: s.scenarioPreset,
         trainingMode: s.trainingMode,
         activeStepId: 'pc_st_01_01',
@@ -499,7 +515,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   toggleTripReactor: () => {
       const newVal = !get().trip_reactor;
       logger.logAction('TOGGLE_TRIP_REACTOR', { target: 'trip_reactor', value: newVal });
-      set({ trip_reactor: newVal });
+      // When tripping, force Reactivity to 0 and Activate SI
+      if (newVal) {
+        set({ trip_reactor: newVal, reactivity: 0, activate_si: true });
+      } else {
+        set({ trip_reactor: newVal });
+      }
   },
   toggleSi: () => {
       const newVal = !get().activate_si;
@@ -546,7 +567,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   toggleTripTurbine: () => {
       const newVal = !get().trip_turbine;
       logger.logAction('TOGGLE_TRIP_TURBINE', { target: 'trip_turbine', value: newVal });
-      set({ trip_turbine: newVal });
+      // When tripping, Close Control Valves
+      if (newVal) {
+          set({ trip_turbine: newVal, turbine_speed_cv: 0.0, turbine_load_cv: 0.0 });
+      } else {
+          set({ trip_turbine: newVal });
+      }
   },
   setTurbineSpeedCv: (val) => {
       const steppedVal = Math.round(val * 10) / 10;
@@ -595,6 +621,17 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     // Core Temp Logic
     const flow_factor = 1.0;
     let target_core_t = 330.68 + (new_reactivity * 0.4) / flow_factor;
+
+    // Bypass Valve Cooling Effect (Requested: Adjust bypass -> core temp down)
+    target_core_t -= (s.turbine_bypass_cv * 50.0);
+
+    // Override Logic for specific states
+    if (!s.rcp) {
+        target_core_t = 200.0;
+    } else if (s.trip_reactor) {
+        target_core_t = 350.0;
+    }
+
     target_core_t = Math.min(400, Math.max(20, target_core_t));
     const new_core_t = s.core_t + (target_core_t - s.core_t) * 0.02;
 
@@ -729,6 +766,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates.low_primary_coolant = final_pri_flow < 40000;
     updates.reactor_coolant_pump_trip = !s.rcp;
     updates.safety_injection_engaged = s.activate_si;
+    updates.all_rods_down = s.trip_reactor;
     updates.cnmt_rad_monitor = false;
 
     // Secondary

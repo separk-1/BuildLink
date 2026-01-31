@@ -17,7 +17,8 @@ pc_st_07_02,pc_st_08_01,next,next,pc_07_02_n
 pc_st_08_01,pc_st_08_02,next,next,pc_08_01_n
 pc_st_08_02,pc_st_08_03,next,next,pc_08_02_n
 pc_st_09_01,pc_st_10_01,next,next,pc_09_01_n
-pc_st_10_01,pc_st_10_02,next,next,pc_10_01_n
+pc_st_10_01,pc_st_10_02,TRUE,next,pc_10_01_t
+pc_st_10_01,pc_st_10_01,FALSE,next,pc_10_01_f
 pc_st_10_02,pc_st_10_03,next,next,pc_10_02_n
 pc_st_01_01,an_01,verify,action,pc_01_01_s
 an_01,pc_ft_01_01_s,is,relationship,pc_01_01_s
