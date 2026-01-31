@@ -3,15 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import requests
-import time
-import random
-
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
-
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
@@ -34,9 +27,6 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
-def _sleep_backoff(i: int):
-    time.sleep(0.6 * (2 ** i) + random.random() * 0.2)
-
 @app.post("/api/chat")
 def chat_with_gemini(request: ChatRequest):
     api_key = os.environ.get("VITE_GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
@@ -50,55 +40,30 @@ def chat_with_gemini(request: ChatRequest):
         "contents": [{
             "parts": [{
                 "text": f"""
-You are an operations assistant for a PWR LOFW training simulator.
-Use only the provided procedure graph context.
-Be concise and safety-oriented.
+                You are an AI Advisor for a Nuclear Power Plant Operator.
+                Use the following Knowledge Graph context (Procedures and System State) to answer the user's question.
+                Be concise, professional, and safety-oriented.
 
-CONTEXT:
-{request.context}
+                CONTEXT:
+                {request.context}
 
-QUESTION:
-{request.question}
-
-Return:
-- Answer (2–4 sentences)
-- Next step (one action)
-"""
+                USER QUESTION:
+                {request.question}
+                """
             }]
         }]
     }
 
-    last_error = None
+    try:
+        response = requests.post(url, json=payload, headers={'Content-Type': 'application/json'})
+        response.raise_for_status()
+        data = response.json()
 
-    for i in range(3):  # 최대 3회 시도
         try:
-            response = requests.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=60,
-            )
+            return {"answer": data["candidates"][0]["content"]["parts"][0]["text"]}
+        except (KeyError, IndexError):
+            return {"answer": "Error parsing AI response."}
 
-            if response.status_code == 429:
-                if i < 2:
-                    _sleep_backoff(i)
-                    continue
-                from backend.llm_fallback import call_openai
-                return call_openai(request.question, request.context)
-
-            response.raise_for_status()
-            data = response.json()
-
-            return {
-                "answer": data["candidates"][0]["content"]["parts"][0]["text"]
-            }
-
-        except requests.exceptions.HTTPError as e:
-            last_error = e
-            break
-        except requests.exceptions.RequestException as e:
-            last_error = e
-            break
-
-    print(f"Gemini API Error: {last_error}")
-    raise HTTPException(status_code=502, detail="Failed to contact AI service")
+    except requests.exceptions.RequestException as e:
+        print(f"Gemini API Error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to contact AI service")
