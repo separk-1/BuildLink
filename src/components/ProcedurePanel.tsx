@@ -97,7 +97,7 @@ export const ProcedurePanel = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { activeStepId, setActiveStepId, stepHistory, goToPreviousStep } = useSimulationStore();
-  const { entityCsv, relationshipCsv, procedureCsv, lerEntityCsv, lerRelationshipCsv, loading } = useGraphData();
+  const { entityCsv, relationshipCsv, procedureCsv, lerEntityCsv, lerRelationshipCsv, parentCsv, loading } = useGraphData();
 
   // Resize Observer to handle panel resizing
   useEffect(() => {
@@ -127,11 +127,25 @@ export const ProcedurePanel = () => {
     let entities = parseCSV(entityCsv);
     let relationships = parseCSV(relationshipCsv);
 
-    if (incidentView && lerEntityCsv && lerRelationshipCsv) {
-        const lerEntities = parseCSV(lerEntityCsv);
-        const lerRelationships = parseCSV(lerRelationshipCsv);
-        entities = [...entities, ...lerEntities];
-        relationships = [...relationships, ...lerRelationships];
+    if (incidentView) {
+         if (lerEntityCsv && lerRelationshipCsv) {
+            const lerEntities = parseCSV(lerEntityCsv);
+            const lerRelationships = parseCSV(lerRelationshipCsv);
+            entities = [...entities, ...lerEntities];
+            relationships = [...relationships, ...lerRelationships];
+         }
+
+         if (parentCsv) {
+             const parentLinks = parseCSV(parentCsv).map((r: any) => ({
+                 // Map parent.csv columns to standard link properties
+                 src_id: r.parent_id,
+                 dst_id: r.child_id,
+                 edge_name: r.edge_name,
+                 edge_type: r.edge_type,
+                 class_num: undefined // parent links might not be part of highlight chains
+             }));
+             relationships = [...relationships, ...parentLinks];
+         }
     }
 
     const nodes: CustomNode[] = entities.map((e: any) => ({
@@ -153,7 +167,7 @@ export const ProcedurePanel = () => {
     });
 
     return { nodes, links };
-  }, [entityCsv, relationshipCsv, lerEntityCsv, lerRelationshipCsv, loading, incidentView]);
+  }, [entityCsv, relationshipCsv, lerEntityCsv, lerRelationshipCsv, parentCsv, loading, incidentView]);
 
   // Determine Highlighting Set (Memoized)
   const highlightSet = useMemo(() => {

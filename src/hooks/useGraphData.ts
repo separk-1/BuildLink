@@ -7,6 +7,7 @@ export const useGraphData = () => {
     procedureCsv: string;
     lerEntityCsv: string;
     lerRelationshipCsv: string;
+    parentCsv: string;
     loading: boolean
   }>({
     entityCsv: '',
@@ -14,18 +15,20 @@ export const useGraphData = () => {
     procedureCsv: '',
     lerEntityCsv: '',
     lerRelationshipCsv: '',
+    parentCsv: '',
     loading: true,
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [entityRes, relRes, procRes, lerEntRes, lerRelRes] = await Promise.all([
+        const [entityRes, relRes, procRes, lerEntRes, lerRelRes, parentRes] = await Promise.all([
           fetch('/data/entity.csv'),
           fetch('/data/relationship.csv'),
           fetch('/data/procedure.csv'),
           fetch('/data/ler_entity.csv'),
-          fetch('/data/ler_relationship.csv')
+          fetch('/data/ler_relationship.csv'),
+          fetch('/data/parent.csv')
         ]);
 
         if (!entityRes.ok || !relRes.ok) {
@@ -38,6 +41,7 @@ export const useGraphData = () => {
         const procedureCsv = procRes.ok ? await procRes.text() : '';
         const lerEntityCsv = lerEntRes.ok ? await lerEntRes.text() : '';
         const lerRelationshipCsv = lerRelRes.ok ? await lerRelRes.text() : '';
+        const parentCsv = parentRes.ok ? await parentRes.text() : '';
 
         setData({
           entityCsv,
@@ -45,6 +49,7 @@ export const useGraphData = () => {
           procedureCsv,
           lerEntityCsv,
           lerRelationshipCsv,
+          parentCsv,
           loading: false
         });
       } catch (error) {
