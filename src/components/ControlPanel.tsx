@@ -37,33 +37,36 @@ export const ControlPanel = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>CONTROL PANEL</span>
 
-            {/* Scenario Selector (Only when Training Mode is OFF) */}
-            {!s.trainingMode && (
-                <select
-                    className="dcs-select"
-                    style={{ width: '120px', fontSize: '0.7rem' }}
-                    value={s.scenarioPreset}
-                    onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
-                    title="Scenario Preset"
-                >
-                    <option value="cv">SCENARIO A</option>
-                    <option value="pump">SCENARIO B</option>
-                    <option value="hard">SCENARIO C</option>
-                </select>
-            )}
+            {/* Scenario Selector & TRN Toggle moved to Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px', borderLeft: '1px solid #555', paddingLeft: '10px' }}>
+                 {/* Training Mode Toggle */}
+                 <button
+                    className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
+                    onClick={s.toggleTrainingMode}
+                    style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
+                    title="Training Mode (Randomness)"
+                 >
+                    TRN: {s.trainingMode ? 'ON' : 'OFF'}
+                 </button>
+
+                 {/* Scenario Selector (Only when Training Mode is OFF) */}
+                {!s.trainingMode && (
+                    <select
+                        className="dcs-select"
+                        style={{ width: '100px', fontSize: '0.7rem' }}
+                        value={s.scenarioPreset}
+                        onChange={(e) => handleScenarioChange(e.target.value as ScenarioPreset)}
+                        title="Scenario Preset"
+                    >
+                        <option value="cv">SCENARIO A</option>
+                        <option value="pump">SCENARIO B</option>
+                        <option value="hard">SCENARIO C</option>
+                    </select>
+                )}
+            </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-             {/* Training Mode Toggle */}
-             <button
-                className={`dcs-btn ${s.trainingMode ? 'active-red' : ''}`}
-                onClick={s.toggleTrainingMode}
-                style={{ padding: '2px 6px', fontSize: '0.6rem', minWidth: '40px' }}
-                title="Training Mode (Randomness)"
-             >
-                TRN: {s.trainingMode ? 'ON' : 'OFF'}
-             </button>
-
             <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--color-info)' }}>
                 {formatTime(s.time)}
             </span>
@@ -76,28 +79,21 @@ export const ControlPanel = () => {
         <ControlColumn label="REACTOR">
             <TripButton label="TRIP REACTOR" onClick={s.toggleTripReactor} tripped={s.trip_reactor} />
 
-            {/* Horizontal Toggles */}
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                  <ToggleButton label="SI" active={s.activate_si} onClick={s.toggleSi} />
                  <ToggleButton label="RCP" active={s.rcp} onClick={s.toggleRcp} />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
                  <ToggleButton label="PORV" active={s.porviv} onClick={s.togglePorv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
         </ControlColumn>
 
         {/* SG Column */}
         <ControlColumn label="STEAM GENERATOR">
-            {/* Horizontal Toggles */}
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '4px' }}>
+            {/* Vertical Toggles */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <ToggleButton label="FWP" active={s.fw_pump} onClick={s.toggleFwPump} />
                 <ToggleButton label="FWIV" active={s.fwiv} onClick={s.toggleFwiv} onLabel="OPEN" offLabel="CLOSE" />
-            </div>
-             <div style={{ display: 'flex', flexDirection: 'row', gap: '4px', marginTop: '4px' }}>
                 <ToggleButton label="MSIV" active={s.msiv} onClick={s.toggleMsiv} onLabel="OPEN" offLabel="CLOSE" />
             </div>
-
 
             <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '8px 0' }}></div>
 
@@ -135,6 +131,7 @@ export const ControlPanel = () => {
           alignItems: 'center',
           justifyContent: 'flex-end'
       }}>
+            {/* Footer Buttons */}
             <button
                 className="dcs-btn"
                 onClick={s.resetSimulation}
@@ -200,10 +197,10 @@ const ToggleButton = ({ label, active, onClick, onLabel = 'ON', offLabel = 'OFF'
     <button
         onClick={onClick}
         className={`dcs-btn ${active ? 'active-green' : ''}`}
-        style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', minHeight: '36px' }}
+        style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', minHeight: '30px' }}
     >
-        <span style={{ fontSize: '0.7rem', textAlign: 'left', marginRight: '8px', lineHeight: '1.1' }}>{label}</span>
-        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{active ? onLabel : offLabel}</span>
+        <span style={{ fontSize: '0.65rem', textAlign: 'left', marginRight: '8px', lineHeight: '1.1' }}>{label}</span>
+        <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{active ? onLabel : offLabel}</span>
     </button>
 );
 

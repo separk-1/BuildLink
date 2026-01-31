@@ -20,38 +20,27 @@ export const StatusPanel = () => {
       </h2>
       <div className="panel-content" style={{ flexDirection: 'column', gap: '10px' }}>
 
-        {/* Annunciator Grid */}
-        <div className="annunciator-grid">
-            <div className="annunciator-col">
-                <div className="annunciator-header">PRIMARY</div>
-                <AlarmTile label="RX OVER LIMIT" active={state.rx_over_limit} />
-                <AlarmTile label="CORE T HIGH" active={state.core_temp_high} />
-                <AlarmTile label="CORE T LOW" active={state.core_temp_low} />
-                <AlarmTile label="RODS DOWN" active={state.all_rods_down} />
-                <AlarmTile label="RCP TRIP" active={state.reactor_coolant_pump_trip} />
-                <AlarmTile label="LO PRI COOLANT" active={state.low_primary_coolant} />
-                <AlarmTile label="SI ENGAGED" active={state.safety_injection_engaged} />
-            </div>
+        {/* Annunciator Grid (3x3) */}
+        <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '4px',
+            padding: '4px',
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border-color)'
+        }}>
+            <AlarmTile label="CORE T HIGH" active={state.core_temp_high} />
+            <AlarmTile label="SI ENGAGED" active={state.safety_injection_engaged} />
+            <AlarmTile label="RODS DOWN" active={state.all_rods_down} />
 
-            <div className="annunciator-col">
-                <div className="annunciator-header">SECONDARY</div>
-                <AlarmTile label="SG HI LEVEL" active={state.sg_high_level} />
-                <AlarmTile label="SG LO LEVEL" active={state.sg_low_level} />
-                <AlarmTile label="FW LO FLOW" active={state.fw_low_flow} />
-                <AlarmTile label="FW PUMP TRIP" active={state.fw_pump_trip} />
-                <AlarmTile label="LO TB PRESS" active={state.low_turbine_pressure} />
-                <AlarmTile label="MS RAD MON" active={state.ms_rad_monitor} />
-            </div>
+            <AlarmTile label="RCP TRIP" active={state.reactor_coolant_pump_trip} />
+            <AlarmTile label="SG HI LEVEL" active={state.sg_high_level} />
+            <AlarmTile label="SG LO LEVEL" active={state.sg_low_level} />
 
-            <div className="annunciator-col">
-                <div className="annunciator-header">TURBINE</div>
-                <AlarmTile label="TURBINE TRIP" active={state.turbine_trip} />
-                <AlarmTile label="NOT SYNCED" active={state.not_synced_to_grid} />
-                <AlarmTile label="READY ROLL" active={state.ready_to_roll} />
-                <AlarmTile label="READY SYNC" active={state.ready_to_sync} />
-                <AlarmTile label="ATMOS DUMP" active={state.atmos_dump_active} />
-                <AlarmTile label="NOT LATCHED" active={state.not_latched} />
-            </div>
+            <AlarmTile label="FW LO FLOW" active={state.fw_low_flow} />
+            <AlarmTile label="FW PUMP TRIP" active={state.fw_pump_trip} />
+            <AlarmTile label="TURBINE TRIP" active={state.turbine_trip} />
         </div>
 
         {/* Main Schematic Area */}
@@ -65,7 +54,7 @@ export const StatusPanel = () => {
 };
 
 const AlarmTile = ({ label, active }: { label: string, active: boolean }) => (
-  <div className={`annunciator-tile ${active ? 'active' : ''}`}>
+  <div className={`annunciator-tile ${active ? 'active' : ''}`} style={{ height: '32px', fontSize: '0.7rem' }}>
     {label}
   </div>
 );
@@ -105,12 +94,17 @@ const SchematicView = ({ state }: { state: any }) => {
       <text x="360" y="300" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Steam Generator</text>
 
       {/* Turbine Block */}
-      <rect x="650" y="50" width="200" height="200" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      {/* y=50, h=200 -> Bottom=250 */}
+      <rect x="650" y="50" width="200" height="200" rx="0" fill={cComponent} stroke={cBorder} strokeWidth="3" />
       <text x="750" y="155" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Turbine</text>
 
       {/* Condenser Block (Attached below Turbine) */}
-      <rect x="650" y="260" width="200" height="150" rx="4" fill={cComponent} stroke={cBorder} strokeWidth="3" />
-      <text x="750" y="340" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Condenser</text>
+      {/* y=250. Connected. */}
+      <rect x="650" y="250" width="200" height="150" rx="0" fill={cComponent} stroke={cBorder} strokeWidth="3" />
+      <text x="750" y="325" textAnchor="middle" fill={cBorder} fontSize="20" fontWeight="bold">Condenser</text>
+
+      {/* Mask the border between Turbine and Condenser to make them look unified */}
+      <line x1="653" y1="250" x2="847" y2="250" stroke={cComponent} strokeWidth="4" />
 
 
       {/* --------------------------------------------------------------------------
@@ -144,7 +138,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Feedwater Return */}
       {/* Condenser Bottom -> Pump (Moved down to y=530 to create MORE space for FW Flow Gauge) */}
-      <path d="M 750 410 L 750 530 L 550 530" fill="none" stroke={cPipeCold} strokeWidth="6" />
+      <path d="M 750 400 L 750 530 L 550 530" fill="none" stroke={cPipeCold} strokeWidth="6" />
       {/* Pump -> Valves -> SG Bottom */}
       <path d="M 550 530 L 360 530 L 360 410" fill="none" stroke={cPipeCold} strokeWidth="6" />
 
@@ -157,36 +151,37 @@ const SchematicView = ({ state }: { state: any }) => {
       <circle cx="245" cy="380" r="18" fill={state.rcp ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
       <text x="245" y="440" textAnchor="middle" fill="#94a3b8" fontSize="12">
         RCP
-        <title>(Reactor Cooler Pump)</title>
+        <title>RCP (Reactor Cooler Pump)</title>
       </text>
 
       {/* Main Steam Isolation Valve (MSIV) - Vertically above SG */}
-      <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="(Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
+      <Valve x={360} y={130} open={state.msiv} label="MSIV" fullName="MSIV (Main Steam Isolation Valve)" vertical={true} labelY={-10} labelOffset={40} />
 
       {/* Steam Pressure - Between MSIV and TSCV/Header. X=440. Moved Y up slightly to avoid MSIV label clash. */}
       <DigitalGauge x={440} y={35} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} fullName="(Steam Pressure)" />
 
       {/* Turbine Speed Control Valve - y=100 */}
-      <Valve x={550} y={100} open={true} label="TSCV" fullName="(Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={100} open={true} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Load Control Valve - y=200 */}
-      <Valve x={550} y={200} open={true} label="TLCV" fullName="(Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={200} open={true} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Bypass Control Valve - y=300 */}
-      <Valve x={550} y={300} open={false} label="TBCV" fullName="(Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={300} open={false} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Feedwater Pump - Moved to y=530 */}
       <circle cx="500" cy="530" r="18" fill={state.fw_pump ? cValveOpen : cComponent} stroke={cBorder} strokeWidth="2" />
       <text x="500" y="565" textAnchor="middle" fill="#94a3b8" fontSize="12">
           FWP
-          <title>(Feedwater Pump)</title>
+          <title>FWP (Feedwater Pump)</title>
       </text>
 
       {/* Feedwater Isolation Valve - Moved to y=530 */}
-      <Valve x={420} y={530} open={state.fwiv} label="FWIV" fullName="(Feedwater Isolation Valve)" vertical={false} labelY={-25} />
+      <Valve x={420} y={530} open={state.fwiv} label="FWIV" fullName="FWIV (Feedwater Isolation Valve)" vertical={false} labelY={-25} />
 
       {/* Feedwater Control Valve - Moved to y=490 to make room for gauge */}
-      <Valve x={360} y={490} open={state.fwcv_degree > 0} label="FWCV" fullName="(Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
+      {/* Moving FWCV slightly lower or ensuring gauge is high enough */}
+      <Valve x={360} y={490} open={state.fwcv_degree > 0} label="FWCV" fullName="FWCV (Feedwater Control Valve)" vertical={true} type="control" labelOffset={40} />
 
 
       {/* --------------------------------------------------------------------------
@@ -216,10 +211,10 @@ const SchematicView = ({ state }: { state: any }) => {
       <DigitalGauge x={175} y={310} label="Primary Flow" value={fmt(state.display_pri_flow/1000, 1)} unit="kL/s" width={90} fullName="(Primary Flow)" />
 
       {/* Feedwater Flow (Between SG and FWCV) */}
-      {/* SG Bottom y=410. FWCV y=490. Space 80px. Gauge Height 50. */}
-      {/* Center y=450. Top y=425. */}
-      {/* Placed centered on pipe (x=360), offset for width=80 -> x=320 */}
-      <DigitalGauge x={320} y={425} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
+      {/* SG Bottom y=410. FWCV y=490. Distance=80px. Gauge H=50. */}
+      {/* If gauge at y=420: Bottom=470. FWCV top (y=490-15=475). Very close. */}
+      {/* Let's move Gauge to y=420. FWCV is at y=490. */}
+      <DigitalGauge x={320} y={420} label="FW Flow" value={fmt(state.display_fw_flow, 0)} unit="L/s"
           warn={state.fw_low_flow} width={80} compact={true} fullName="(Feedwater Flow)"
       />
 
