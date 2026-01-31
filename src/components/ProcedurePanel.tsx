@@ -203,17 +203,34 @@ export const ProcedurePanel = () => {
 
           if (isLink) {
               const conditionId = getId(isLink.target);
+              
               // Check if Condition Node has TRUE/FALSE edges
               const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
-              const hasDecision = conditionLinks.some(l => l.label === 'TRUE' || l.label === 'FALSE');
+              const hasDecision = conditionLinks.some(l => l.label.startsWith('TRUE') || l.label.startsWith('true') || l.label.startsWith('false'));
 
               if (hasDecision) {
                   // Add Entire Chain to Highlight Set
                   set.add(indicatorId);
                   set.add(conditionId);
-                  conditionLinks.forEach(l => set.add(getId(l.target)));
+                  conditionLinks.forEach(l => {
+                    const targetId = getId(l.target);
+                    set.add(targetId);
+
+                    if (l.class_num !== undefined) {
+                        const followLinks = graphData.links.filter(fl =>
+                            getId(fl.source) === targetId &&
+                            fl.class_num === l.class_num
+                        );
+
+                        followLinks.forEach(fl => {
+                            set.add(getId(fl.target));
+                        });
+                    }
+                });
+
                   return set;
               }
+
           }
       }
 
@@ -306,19 +323,31 @@ export const ProcedurePanel = () => {
       const links = graphData.links.filter(l => getId(l.source) === activeStepId);
 
       const verifyLink = links.find(l => l.label === 'verify');
-      const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE');
-      const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE');
-      const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
+      // const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE' || l.label === 'TRUE_then');
+      // const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE' || l.label === 'FALSE_then');
+      const nextLink = links.find(l => l.label === 'next' || l.label === 'go_to' || l.label.startsWith('follow_next'));
       const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if', 'check_if'].includes(l.label));
 
-      // 1. Direct Decision (Check-If) - 1 Hop
-      if (trueLink || falseLink) {
-          return {
-              type: 'DECISION',
-              trueNode: getTarget(trueLink),
-              falseNode: getTarget(falseLink)
-          };
-      }
+       /*
+      // 1. Direct Decision 
+        if (trueLink && falseLink) {
+            return {
+                type: 'DECISION',
+                trueNode: getTarget(trueLink),
+                falseNode: getTarget(falseLink)
+            };
+        }
+
+        // 1-1. Pseudo Decision
+        if (trueLink || falseLink) {
+            const onlyLink = trueLink || falseLink;
+            return {
+                type: 'STEP',
+                nextNode: getTarget(onlyLink),
+                pseudoDecision: true
+            };
+        }
+        */
 
       // 2. Indirect Decision (Step -> check_if -> Indicator -> is -> Condition -> TRUE/FALSE) - 2 Hops
       const checkLink = links.find(l => l.label === 'check_if');
@@ -336,16 +365,25 @@ export const ProcedurePanel = () => {
               const conditionId = getTarget(isLink);
               const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
 
-              const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
-              const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
+              const cTrueLink = conditionLinks.find(l => typeof l.label === 'string' && l.label.startsWith('TRUE'));
+              const cFalseLink = conditionLinks.find(l => typeof l.label === 'string' && l.label.startsWith('FALSE'));
 
-              if (cTrueLink || cFalseLink) {
-                  return {
-                      type: 'DECISION',
-                      trueNode: getTarget(cTrueLink),
-                      falseNode: getTarget(cFalseLink)
-                  };
-              }
+              // Direct Decision (Check-If) - 1 Hop
+                if (cTrueLink && cFalseLink) {
+                    return {
+                        type: 'DECISION',
+                        trueNode: getTarget(cTrueLink),
+                        falseNode: getTarget(cFalseLink)
+                    };
+                }
+                // Indirect Pseudo Decision 
+                if (cTrueLink || cFalseLink) {
+                    return {
+                        type: 'STEP',
+                        nextNode: getTarget(nextLink),
+                        pseudoDecision: true
+                    };
+                }
           }
       }
 
@@ -517,7 +555,7 @@ export const ProcedurePanel = () => {
       ctx.lineWidth = lineWidth;
 
       // Dashed line for TRUE/FALSE edges (Checking label)
-      if (link.label === 'TRUE' || link.label === 'FALSE') {
+      if (link.class_num?.endsWith('_t') || link.class_num?.endsWith('_f')) {
           ctx.setLineDash([2, 2]);
       } else {
           ctx.setLineDash([]);
@@ -780,8 +818,18 @@ export const ProcedurePanel = () => {
                      <button
                         className="dcs-btn"
                         style={{ borderColor: '#22c55e', color: '#22c55e' }}
-                        onClick={() => useSimulationStore.setState({ simulationEnded: true })}
+                        //onClick={() => useSimulationStore.setState({ simulationEnded: true, fault_active: false, fwcv_continuous: 0.5, fwcv_degree: 0.5, sg_level: 50})}
+                     onClick={() => {
+                        const currentState = useSimulationStore.getState();
+                        if (currentState.scenarioPreset === 'hard') {
+                            useSimulationStore.setState({simulationEnded: true, fault_active: false});
+                        }
+                        else {
+                            useSimulationStore.setState({simulationEnded: true, fault_active: false, fwcv_continuous: 0.5, fwcv_degree: 0.5, sg_level: 50});
+                        }
+                    }}
                      >
+                        
                         COMPLETE SCENARIO
                     </button>
                 )}

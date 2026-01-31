@@ -5,22 +5,25 @@ import { logger } from '../utils/logger';
 const TICK_RATE = 100; // ms (10Hz)
 const DT = TICK_RATE / 1000; // seconds
 
+function convergeToRange(
+    current: number,
+    target: number,
+    min: number,
+    max: number,
+    deltaMax: number
+): number {
+    const boundedTarget = Math.max(min, Math.min(max, target));
+
+    const delta = boundedTarget - current;
+
+    if (Math.abs(delta) > deltaMax) {
+        return current + Math.sign(delta) * deltaMax;
+    } else {
+        return boundedTarget;
+    }
+}
+
 export type ScenarioPreset = 'cv' | 'pump' | 'hard';
-
-interface ProcedureRule {
-  after_action: string;
-  scenario: string; // 'all', 'A', 'B', 'C'
-  status: string;
-  updates: Record<string, string>; // key -> value (raw string from CSV)
-}
-
-interface ActiveTransition {
-  varName: keyof SimulationState;
-  startVal: number;
-  targetVal: number;
-  startTime: number;
-  duration: number;
-}
 
 interface SimulationState {
   // --- System Configuration ---
@@ -29,13 +32,6 @@ interface SimulationState {
   time: number; // Simulation time in seconds
   tick_count: number;
   simulationEnded: boolean;
-
-  // --- Rules Engine ---
-  procedureRules: ProcedureRule[];
-  triggeredRules: Set<string>; // IDs of time-based rules that have fired
-  activeTransitions: ActiveTransition[];
-  loadProcedureRules: () => Promise<void>;
-  triggerStepAction: (stepId: string) => void;
 
   // --- System State (Float/Int) ---
   last_log_time: number;
@@ -67,6 +63,7 @@ interface SimulationState {
   turbine_load_cv: number;  // 0.0-1.0
   turbine_bypass_cv: number;// 0.0-1.0
   turbine_rpm: number;      // Derived for display
+  display_turbine_rpm: number;
 
   // --- Controls (Boolean/Controllable) ---
   // Reactor
@@ -86,6 +83,8 @@ interface SimulationState {
 
   // --- Malfunctions (Hidden) ---
   fault_active: boolean; // Triggered after 5-10s
+  pump_off_triggered: boolean; // Only applied for scenario B: pump
+  reactor_cooled_down: boolean; // Only applied for scenario C: hard
 
   // --- Annunciators (Boolean - Read Only) ---
   // Primary
@@ -153,28 +152,6 @@ const addNoise = (val: number, magnitude: number) => {
     return val + (Math.random() - 0.5) * magnitude;
 };
 
-// Map CSV headers to State keys
-const KEY_MAP: Record<string, keyof SimulationState> = {
-    'Reactivity': 'reactivity',
-    'core_t': 'core_t',
-    'pri_flow': 'pri_flow',
-    'fw_flow': 'fw_flow',
-    'fwcv_degree': 'fwcv_degree',
-    'sg_level': 'sg_level',
-    'steam_press': 'steam_press',
-    'turbine_speed_cv': 'turbine_speed_cv',
-    'turbine_load_cv': 'turbine_load_cv',
-    'turbine_bypass_cv': 'turbine_bypass_cv',
-    'turbine_rpm': 'turbine_rpm',
-    'trip_turbine': 'trip_turbine',
-    'all_rods_down': 'all_rods_down',
-    'safety_injection_engaged': 'safety_injection_engaged',
-    // Mappings for Annunciators acting as Controls in CSV logic
-    'reactor_coolant_pump_trip': 'reactor_coolant_pump_trip',
-    'fw_pump_trip': 'fw_pump_trip',
-    'fw_low_flow': 'fw_low_flow',
-    'core_temp_high': 'core_temp_high'
-};
 
 const INITIAL_STATE = {
   time: 0,
@@ -210,7 +187,7 @@ const INITIAL_STATE = {
   turbine_load_cv: 1.0,
   turbine_bypass_cv: 0.0,
   turbine_rpm: 1800,
-
+  display_turbine_rpm: 1800,
   // Controls
   trip_reactor: false,
   activate_si: false,
@@ -225,6 +202,9 @@ const INITIAL_STATE = {
   trip_turbine: false,
 
   fault_active: false,
+  pump_off_triggered: false, //scenario 'pump'
+  reactor_cooled_down: false, //scenario 'hard'
+
 
   // Annunciators (Init all false)
   rx_over_limit: false,
@@ -257,183 +237,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   activeStepId: 'pc_st_01_01', // Start at Step 1.1
   stepHistory: [],
 
-  procedureRules: [],
-  triggeredRules: new Set(),
-  activeTransitions: [],
-
-  loadProcedureRules: async () => {
-    try {
-        const response = await fetch('/data/procedure_time.csv');
-        const text = await response.text();
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim());
-
-        const rules: ProcedureRule[] = [];
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].split(',');
-            if (row.length < headers.length) continue;
-
-            const updates: Record<string, string> = {};
-            row.forEach((val, idx) => {
-                const header = headers[idx];
-                const cleanVal = val.trim();
-                if (idx > 2 && cleanVal !== '') { // Skip after_action, scenario, status
-                     updates[header] = cleanVal;
-                }
-            });
-
-            rules.push({
-                after_action: row[0].trim(),
-                scenario: row[1].trim(),
-                status: row[2].trim(),
-                updates
-            });
-        }
-        set({ procedureRules: rules });
-        console.log('Loaded Procedure Rules:', rules.length);
-
-        // Apply Initial State (rule where after_action === '0' or '0_0')
-        const initRule = rules.find(r =>
-            r.after_action === 'initial_value' && r.scenario === 'all'
-            );
-        if (initRule) {
-            const updates: any = {};
-            Object.entries(initRule.updates).forEach(([key, val]) => {
-                const stateKey = KEY_MAP[key];
-                if (!stateKey) return;
-
-                if (val.toUpperCase() === 'TRUE') {
-                    updates[stateKey] = true;
-                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = false;
-                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = false;
-                } else if (val.toUpperCase() === 'FALSE') {
-                    updates[stateKey] = false;
-                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = true;
-                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = true;
-                } else {
-                    const targetStr = val.startsWith('_') ? val.substring(1) : val;
-                    const target = parseFloat(targetStr);
-                    if (!isNaN(target)) {
-                        updates[stateKey] = target;
-                        if (stateKey === 'fwcv_degree') {
-                            updates['fwcv_continuous'] = target;
-                        }
-                    }
-                }
-            });
-            console.log("Applied Initial State from CSV:", updates);
-            set(updates);
-        }
-
-        // Trigger 10sec Transition immediately (starts at t=0, lasts 10s)
-        const s = get();
-        s.triggerStepAction('10sec');
-
-    } catch (e) {
-        console.error('Failed to load procedure rules:', e);
-    }
-  },
-
-  triggerStepAction: (stepId: string) => {
-      const s = get();
-      const scenarioMap: Record<ScenarioPreset, string> = { 'cv': 'A', 'pump': 'B', 'hard': 'C' };
-      const currentScenarioChar = scenarioMap[s.scenarioPreset];
-
-      // Helper to match step IDs (e.g. pc_st_01_01 matches 1_1)
-      const normalizeId = (id: string) => {
-          if (id === '5sec') return '5sec';
-          // Extract numbers from pc_st_XX_YY
-          const match = id.match(/pc_st_(\d+)_(\d+)/);  
-          if (match) {
-              const major = parseInt(match[1], 10);
-              const minor = parseInt(match[2], 10);
-              return `${major}_${minor}`;
-          }
-          return id;
-      };
-
-      // Try exact match first, then normalized
-      let matchingRules = s.procedureRules.filter(r =>
-          (r.after_action === stepId || r.after_action === normalizeId(stepId)) &&
-          (r.scenario === 'all' || r.scenario === currentScenarioChar)
-      );
-
-      if (matchingRules.length === 0) return;
-
-      logger.logAction('TRIGGER_RULE', { step: stepId, count: matchingRules.length });
-
-      let newTransitions = [...s.activeTransitions];
-      const updates: Partial<SimulationState> = {};
-      let ended = false;
-
-      matchingRules.forEach(rule => {
-          // if (rule.status.toLowerCase() === 'end') {
-          //     ended = true;
-          // }
-
-          Object.entries(rule.updates).forEach(([key, val]) => {
-              const stateKey = KEY_MAP[key];
-              if (!stateKey) return;
-
-              // Handle Booleans
-              if (val.toUpperCase() === 'TRUE') {
-                  (updates as any)[stateKey] = true;
-                  // Side effects for special controls
-                  if (stateKey === 'reactor_coolant_pump_trip') (updates as any)['rcp'] = false;
-                  if (stateKey === 'fw_pump_trip') (updates as any)['fw_pump'] = false;
-              } else if (val.toUpperCase() === 'FALSE') {
-                  (updates as any)[stateKey] = false;
-                  if (stateKey === 'reactor_coolant_pump_trip') (updates as any)['rcp'] = true;
-                  if (stateKey === 'fw_pump_trip') (updates as any)['fw_pump'] = true;
-              } else {
-                  // Handle Numbers / Transitions
-                  let duration = 3.0;
-                  let targetStr = val;
-                  if (val.startsWith('_')) {
-                      duration = 5.0;
-                      targetStr = val.substring(1);
-                  }
-
-                  // Special Case: 10sec trigger has 10s duration
-                  if (stepId === '10sec') {
-                      duration = 10.0;
-                  }
-
-                  const target = parseFloat(targetStr);
-                  if (!isNaN(target)) {
-                      // Remove existing transition for this var
-                      newTransitions = newTransitions.filter(t => t.varName !== stateKey);
-
-                      // Add new transition
-                      const startVal = typeof s[stateKey] === 'number' ? s[stateKey] as number : target;
-                      newTransitions.push({
-                          varName: stateKey,
-                          startVal: startVal,
-                          targetVal: target,
-                          startTime: s.time,
-                          duration: duration
-                      });
-                  }
-              }
-          });
-      });
-
-      set(state => ({
-          ...updates,
-          activeTransitions: newTransitions,
-          simulationEnded: state.simulationEnded || ended
-      }));
-  },
-
-  setActiveStepId: (id) => {
-      const s = get();
-      if (id) {
-          s.triggerStepAction(id);
-      }
+  setActiveStepId: (id: string | null) => {
       set((state) => {
-          const history = state.activeStepId ? [...state.stepHistory, state.activeStepId] : state.stepHistory;
-          return { activeStepId: id, stepHistory: history };
-      });
+        const history = state.activeStepId
+        ? [...state.stepHistory, state.activeStepId]
+        : state.stepHistory;
+        return { activeStepId: id, stepHistory: history };
+    });
   },
 
   goToPreviousStep: () => set((state) => {
@@ -489,9 +299,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         trainingMode: s.trainingMode,
         activeStepId: 'pc_st_01_01',
         stepHistory: [],
-        procedureRules: s.procedureRules, // Keep loaded rules
-        triggeredRules: new Set(),
-        activeTransitions: []
     });
   },
 
@@ -577,55 +384,82 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const shouldUpdateDisplay = (new_tick_count % 10 === 0);
 
     // --- Rules: Time-based Triggers ---
-    // 10sec rule is now triggered at start via loadProcedureRules.
     // We just need to ensure fault_active is set eventually if needed.
-    if (new_time >= 10.0 && !s.fault_active) {
+    if (!s.simulationEnded && new_time >= 5.0) {
         updates.fault_active = true;
     }
 
-    // 1. Reactor Logic
-    let target_reactivity = s.reactivity;
-    const reactivity_change = (target_reactivity - s.reactivity) * 0.1;
+    // Reactor Logic
+    let target_reactivity = 98.3;
+    if (s.trip_reactor) target_reactivity = 0;
+    const reactivity_change = (target_reactivity - s.reactivity) * 0.01;
     // Clamp reactivity 0-100
     const new_reactivity = Math.max(0, Math.min(100, s.reactivity + reactivity_change));
 
-    // RCP 
-    const new_pri_flow = s.pri_flow;
 
     // Core Temp Logic
-    const flow_factor = 1.0;
-    let target_core_t = 330.68 + (new_reactivity * 0.4) / flow_factor;
-    target_core_t = Math.min(400, Math.max(20, target_core_t));
-    const new_core_t = s.core_t + (target_core_t - s.core_t) * 0.02;
+    let target_core_t = 370;
 
-    // 2. Feedwater Logic
+    // For scenario A, B
+    if (s.fault_active && s.sg_level < 45 && (s.scenarioPreset === 'cv' || s.scenarioPreset === 'pump')){
+        target_core_t = 385;
+    }
+
+    // For scenario C
+    if (s.fault_active && (s.scenarioPreset === 'hard')){
+        target_core_t = 440 - s.turbine_bypass_cv*200; 
+        if (s.safety_injection_engaged){
+        target_core_t = 420 - s.turbine_bypass_cv*200;
+        }
+    }
+
+    // For scenario C (after step 10.3)
+    if (target_core_t < 250 || s.reactor_cooled_down){
+        s.reactor_cooled_down = true;
+        target_core_t = 240;
+    }
+
+    target_core_t = Math.min(450, Math.max(20, target_core_t));
+    const new_core_t = s.core_t + (target_core_t - s.core_t) * 0.01;
+
+    // Feedwater Logic
     let new_fwcv_degree = s.fwcv_degree;
     let new_fwcv_continuous = s.fwcv_continuous;
     let auto_correction = 0;
 
+    // if fault_active is false, set fwcv_mode to Auto
+    if (s.simulationEnded && s.scenarioPreset !== 'hard') {
+        updates.fwcv_mode = true;
+    }
+
     // Auto Mode Logic
     if (s.fwcv_mode) {
         const error = 50.0 - s.sg_level;
-        auto_correction = error * 0.005;
+        auto_correction = error * 0.05;
+        new_fwcv_continuous = Math.max(0, Math.min(1, 0.5 + auto_correction));
 
-        // Note: Old 'fault_active' logic removed in favor of CSV rules.
-        // Unless we want to keep specific behavior for 'cv' drift that isn't in CSV?
-        // CSV 5sec for A (CV) does NOT set fwcv values.
-        // So we might need to keep the "physics drift" behavior if it's considered "physics" of the fault.
-        // The Prompt says "status updates" from CSV.
-        // If the CSV doesn't specify FWCV drift, we assume it's implicit or missing.
-        // I will keep the Auto drift logic for now as it makes the scenario interesting.
-        if (s.fault_active && s.scenarioPreset === 'cv') {
+        if (s.fault_active) {
              auto_correction = -0.01;
+             new_fwcv_continuous = Math.max(0, Math.min(1, s.fwcv_continuous + auto_correction));
         }
-
-        new_fwcv_continuous = Math.max(0, Math.min(1, s.fwcv_continuous + auto_correction));
+        
         new_fwcv_degree = Math.round(new_fwcv_continuous * 10) / 10;
+        
+        if (!s.fault_active && s.fw_pump && s.msiv && s.fwiv){
+            const fwcv_target_min = 0.4;
+            const fwcv_target_max = 0.6;
+            const fwcv_delta_max = 0.02;
+            new_fwcv_degree = convergeToRange(s.fwcv_degree, new_fwcv_degree, fwcv_target_min, fwcv_target_max, fwcv_delta_max);
+            new_fwcv_degree = Math.round(new_fwcv_continuous * 10) / 10;
+        }
     }
 
     // Pump Logic
     const pump_on = s.fw_pump;
-    // Note: Pump trip is now handled via CSV rule setting 'fw_pump_trip' -> 'fw_pump' = false.
+    if (s.fault_active && s.scenarioPreset === 'pump' && !s.pump_off_triggered){
+        s.fw_pump = false;
+        s.pump_off_triggered = true;
+    }
 
     // Flow Calculation
     let avail_pump_head = pump_on ? 2108 : 0;
@@ -633,34 +467,56 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // Hard failure flow factor
     let flow_factor_fault = 1.0;
-    if (s.fault_active && s.scenarioPreset === 'hard') {
+    if (s.scenarioPreset === 'hard' && (s.fault_active || s.simulationEnded )) {
         flow_factor_fault = 0.0;
     }
 
-    const target_fw_flow = avail_pump_head * new_fwcv_degree * flow_factor_fault;
+    let target_fw_flow = 1054;
+    if (s.fault_active && (s.scenarioPreset === 'cv' || s.scenarioPreset === 'pump')) {
+        target_fw_flow = avail_pump_head * 0.55*new_fwcv_degree * flow_factor_fault; //If we set the constant for new_fwcv_degree to 0.5, the flow will be exactly 1054, which is enough to maintain the current SG level but cannot fill an empty SG tank. To allow the tank to be filled from empty, we set it slightly higher, at 0.6.
+    }
+    else {
+        target_fw_flow = avail_pump_head * new_fwcv_degree * flow_factor_fault; 
+    }
+
     let new_fw_flow = s.fw_flow + (target_fw_flow - s.fw_flow) * 0.1;
     new_fw_flow = Math.max(0, new_fw_flow);
 
-    // 3. SG Logic
-    let steam_out = (new_reactivity / 98.3) * 1054;
-    if (!s.msiv) steam_out = 0;
+    // SG Logic
+    let steam_out = (s.steam_press/114.4)*1054
 
     const mass_balance = new_fw_flow - steam_out;
     let new_sg_level = s.sg_level + mass_balance * 0.005 * DT;
-    new_sg_level = Math.max(0, Math.min(100, new_sg_level));
+    new_sg_level = Math.max(40.5, Math.min(59.5, new_sg_level));
+
+    if (!s.fault_active && s.fw_pump && s.msiv && s.fwiv && s.scenarioPreset !=='hard') {
+        const sg_target_min = 49.5;
+        const sg_target_max = 50.5;
+        const sg_delta_max = 0.2;
+        new_sg_level = convergeToRange(s.sg_level, new_sg_level, sg_target_min, sg_target_max, sg_delta_max);
+    }
 
     // Pressure Logic
     let target_press = 114.4;
-    if (!s.msiv && new_reactivity > 0) target_press = 75.0;
-    if (new_reactivity < 10) target_press = 40.0 + new_reactivity;
+    if (!s.msiv) target_press = 75;
+    if (s.msiv && new_core_t < 300) target_press = 60 + new_core_t*0.1;
     const new_press = s.steam_press + (target_press - s.steam_press) * 0.05;
 
-    // 4. Turbine Logic
+    // Turbine Logic
     let target_rpm = 1800 - 1800 * (1-s.turbine_speed_cv) * 0.2;
-    if (s.trip_turbine) target_rpm = 0;
-    target_rpm = target_rpm * (1 - s.turbine_load_cv * 0.1);
+    if (s.trip_turbine){
+        target_rpm = 0;
+        s.turbine_speed_cv = 0;
+        s.turbine_load_cv = 0;
+    } 
     const new_rpm = s.turbine_rpm + (target_rpm - s.turbine_rpm) * 0.01;
 
+    // Pri Flow
+    let target_pri_flow = 1101;
+    if (!s.rcp) target_pri_flow = 0;
+    const new_pri_flow = s.pri_flow + (target_pri_flow - s.pri_flow) * 0.05;
+
+ 
     // --- Update Physics Values ---
     updates = {
         ...updates,
@@ -675,31 +531,14 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         turbine_rpm: new_rpm,
     };
 
-    // --- Apply Active Transitions (Overriding Physics) ---
-    if (s.activeTransitions.length > 0) {
-        const remainingTransitions: ActiveTransition[] = [];
-        s.activeTransitions.forEach(t => {
-            const elapsed = new_time - t.startTime;
-            if (elapsed < t.duration) {
-                const progress = elapsed / t.duration;
-                // Linear interpolation
-                const currentVal = t.startVal + (t.targetVal - t.startVal) * progress;
-                (updates as any)[t.varName] = currentVal;
-                remainingTransitions.push(t);
-            } else {
-                // Finished
-                (updates as any)[t.varName] = t.targetVal;
-            }
-        });
-        updates.activeTransitions = remainingTransitions;
-    }
-
     if (shouldUpdateDisplay) {
         // Clamp display reactivity 0-100
-        const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5);
+        const raw_reactivity = !s.trip_reactor ? addNoise(updates.reactivity ?? new_reactivity, 0.5): updates.reactivity ?? new_reactivity;
         updates.display_reactivity = Math.max(0, Math.min(100, raw_reactivity));
 
-        updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 10);
+        const raw_pri_flow_display = addNoise(updates.pri_flow ?? new_pri_flow, 10);
+        updates.display_pri_flow = Math.max(0, raw_pri_flow_display);
+
         updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0);
 
         const raw_fw_display = addNoise(updates.fw_flow ?? new_fw_flow, 10);
@@ -709,6 +548,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         updates.display_sg_level = Math.max(0, raw_sg_display);
 
         updates.display_steam_press = addNoise(updates.steam_press ?? new_press, 0.5);
+        
+        updates.display_turbine_rpm = !s.trip_turbine ? addNoise(updates.turbine_rpm ?? new_rpm, 10): updates.turbine_rpm ?? new_rpm;
     }
 
     // --- Annunciator Logic ---
@@ -725,16 +566,17 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     updates.rx_over_limit = final_reactivity > 102;
     updates.core_temp_high = final_core_t > 400;
     updates.high_temp_high_rx_trip = updates.core_temp_high;
-    updates.core_temp_low = final_core_t < 270 && final_reactivity > 10;
-    updates.low_primary_coolant = final_pri_flow < 40000;
+    updates.core_temp_low = final_core_t < 270;
+    updates.low_primary_coolant = final_pri_flow < 1000;
     updates.reactor_coolant_pump_trip = !s.rcp;
     updates.safety_injection_engaged = s.activate_si;
     updates.cnmt_rad_monitor = false;
+    updates.all_rods_down = final_reactivity < 50;
 
     // Secondary
-    updates.sg_high_level = final_sg_level > 80;
-    updates.sg_low_level = final_sg_level < 30;
-    updates.fw_low_flow = final_fw_flow < 500 && final_reactivity > 10;
+    updates.sg_high_level = final_sg_level > 55;
+    updates.sg_low_level = final_sg_level < 45;
+    updates.fw_low_flow = final_fw_flow < 500;
     updates.fw_pump_trip = !pump_on;
     updates.low_turbine_pressure = final_press < 40;
     updates.ms_rad_monitor = false;
