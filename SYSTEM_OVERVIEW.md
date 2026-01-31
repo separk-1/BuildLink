@@ -40,41 +40,29 @@ The **Loss of Feedwater (LOFW)** is a critical event where the Steam Generator (
     *   `SG LEVEL` begins to decrease rapidly.
     *   `SG LOW LEVEL` alarm activates.
 4.  **Operator Response (Procedure)**:
-    *   Attempt to restore flow (Start standby pump, open valves).
-    *   If flow cannot be restored, manually **Trip the Reactor** before the automatic safety systems engage.
+    *   The Operator follows the steps in the **Procedure Panel**.
+    *   Actions taken (e.g., verifying values, tripping reactor) update the simulation state.
+    *   Completing the procedure stabilizes the plant.
 
 ---
 
-## 3. Simulation Logic ("Fake Physics")
+## 3. Simulation Logic (Hybrid Model)
 
-We utilize a simplified physics model ("Fake Physics") running at **10Hz** (10 updates per second). This model focuses on **causal relationships** and **operator decision points** rather than engineering-grade thermal hydraulics.
+We utilize a hybrid model combining simplified physics with procedure-driven state transitions.
 
-### Key Dynamics
-
-#### 1. Feedwater Flow
-Flow is determined by the "path of least resistance" and pump energy.
-$$
-Flow = k \times (\text{PumpStatus}) \times (\text{IsolationValve}) \times (\text{ControlValve\%})
-$$
-*If the pump is OFF or the Isolation Valve is CLOSED, Flow becomes 0 immediately.*
-
-#### 2. Steam Generator Level
-The SG behaves like a simple tank. The level changes based on the mass balance (Input - Output).
+### Physics Loop (10Hz)
+Focuses on continuous dynamics:
 $$
 \frac{d(\text{Level})}{dt} = \alpha \times (\text{FeedwaterFlow}) - \beta \times (\text{SteamOut})
 $$
-*   **FeedwaterFlow**: Adds water (increases level).
-*   **SteamOut**: Removes water (decreases level). Steam Out is proportional to **Reactor Power**.
+*   **Feedwater Flow**: Derived from Pump Status, Valve Position, and Line Resistance.
+*   **Reactor Power**: Decays exponentially on Trip.
 
-#### 3. Reactor Power & Trip
-*   **Normal**: Power is 100%.
-*   **Trip**: If the operator presses `TRIP REACTOR`, control rods drop (simulated). Power decays exponentially toward 0%.
-*   **Effect**: As Power drops, `SteamOut` decreases, slowing the drop in SG Level.
-
-### Noise Simulation
-To make the simulator realistic for AI/Operator training, we add Gaussian noise to the "Display" variables.
-*   **True State**: Used for physics calculations (smooth).
-*   **Display State**: Used for UI gauges and graphs (jittery).
+### Procedure Rules Engine
+Certain scenario events are deterministic to ensure training consistency.
+*   **Driver**: `SCENARIO_LOGIC.md` and `procedure_time.csv`.
+*   **Mechanism**: When a specific Procedure Step is activated (e.g., "Step 5"), the engine looks up target values in the CSV.
+*   **Transition**: The system linearly interpolates variables (e.g., Temperature, Flow) to the target values over 3-5 seconds. This allows the scenario to "force" specific outcomes (like a successful recovery) regardless of the precise physics inputs, ensuring the training narrative holds.
 
 ---
 
@@ -96,11 +84,9 @@ The graph consists of **Entities (Nodes)** and **Relationships (Edges)**:
     *   `next`: Step -> Step (Sequence).
 
 ### Integration Features
-1.  **Visualization**: A force-directed graph (nodes repel, links attract) renders the procedure network.
-2.  **Auto-Focus**: The system monitors the live simulation state.
-    *   *Example*: If `FW LOW FLOW` alarm is active, the graph automatically zooms and centers on **STEP 2** (the relevant step).
-    *   *Example*: If `REACTOR TRIPPED`, it jumps to **STEP 4**.
-3.  **Hover Tooltips**: Hovering over a node displays its detailed Type and ID.
+1.  **Interactive Walkthrough**: The user clicks "NEXT STEP", "CONFIRM CHECK", or "YES/NO" buttons to advance the procedure.
+2.  **Auto-Focus**: The graph automatically zooms and centers on the **Active Step** (`activeStepId`) to guide the operator's attention.
+3.  **State Linking**: The active step triggers the **Procedure Rules Engine** to update the plant state (as described in Sec 3), creating a responsive environment.
 
 ---
 
@@ -115,7 +101,3 @@ When a user asks a question (e.g., "What should I do now?"):
     *   **Knowledge Graph Data**: The full list of procedure steps and their logic.
 2.  **Prompt Engineering**: A prompt is constructed sending this context to the **Google Gemini API**.
 3.  **Response**: Gemini analyzes the situation against the procedure rules and provides a safety-critical answer.
-
-### Why this approach?
-*   **Accuracy**: The AI doesn't hallucinate procedures; it reads them directly from the graph data we provide.
-*   **Context-Awareness**: It knows the *exact* current state of the plant (e.g., "The pump is currently OFF").

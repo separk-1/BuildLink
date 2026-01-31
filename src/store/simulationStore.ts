@@ -184,27 +184,27 @@ const INITIAL_STATE = {
   simulationEnded: false,
 
   // Reactor
-  reactivity: 100.0,
-  display_reactivity: 100.0,
+  reactivity: 98.3,
+  display_reactivity: 98.3,
 
-  core_t: 310.0,
-  display_core_t: 310.0,
+  core_t: 370.0,
+  display_core_t: 370.0,
 
-  pri_flow: 45000,
-  display_pri_flow: 45000,
+  pri_flow: 1101,
+  display_pri_flow: 1101,
 
   // SG
   fw_flow: 1500,
   display_fw_flow: 1500,
 
-  fwcv_degree: 0.8,
-  fwcv_continuous: 0.8,
+  fwcv_degree: 0.5,
+  fwcv_continuous: 0.5,
 
   sg_level: 50.0,
   display_sg_level: 50.0,
 
-  steam_press: 60.0,
-  display_steam_press: 60.0,
+  steam_press: 114.4,
+  display_steam_press: 114.4,
 
   // Turbine
   turbine_speed_cv: 1.0,
@@ -292,6 +292,42 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         }
         set({ procedureRules: rules });
         console.log('Loaded Procedure Rules:', rules.length);
+
+        // Apply Initial State (rule where after_action === '0' or '0_0')
+        const initRule = rules.find(r => (r.after_action === '0' || r.after_action === '0_0') && r.scenario === 'all');
+        if (initRule) {
+            const updates: any = {};
+            Object.entries(initRule.updates).forEach(([key, val]) => {
+                const stateKey = KEY_MAP[key];
+                if (!stateKey) return;
+
+                if (val.toUpperCase() === 'TRUE') {
+                    updates[stateKey] = true;
+                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = false;
+                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = false;
+                } else if (val.toUpperCase() === 'FALSE') {
+                    updates[stateKey] = false;
+                    if (stateKey === 'reactor_coolant_pump_trip') updates['rcp'] = true;
+                    if (stateKey === 'fw_pump_trip') updates['fw_pump'] = true;
+                } else {
+                    const targetStr = val.startsWith('_') ? val.substring(1) : val;
+                    const target = parseFloat(targetStr);
+                    if (!isNaN(target)) {
+                        updates[stateKey] = target;
+                        if (stateKey === 'fwcv_degree') {
+                            updates['fwcv_continuous'] = target;
+                        }
+                    }
+                }
+            });
+            console.log("Applied Initial State from CSV:", updates);
+            set(updates);
+        }
+
+        // Trigger 10sec Transition immediately (starts at t=0, lasts 10s)
+        const s = get();
+        s.triggerStepAction('10sec');
+
     } catch (e) {
         console.error('Failed to load procedure rules:', e);
     }
@@ -357,6 +393,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
                       targetStr = val.substring(1);
                   }
 
+                  // Special Case: 10sec trigger has 10s duration
+                  if (stepId === '10sec') {
+                      duration = 10.0;
+                  }
+
                   const target = parseFloat(targetStr);
                   if (!isNaN(target)) {
                       // Remove existing transition for this var
@@ -401,8 +442,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       return { activeStepId: prevStep || null, stepHistory: newHistory };
   }),
 
-  setScenarioPreset: (preset) => set({ scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] }),
-  toggleTrainingMode: () => set((state) => ({ trainingMode: !state.trainingMode })),
+  setScenarioPreset: (preset) => set((state) => {
+      // If Training Mode is OFF, enforce 'hard' (C) preset only.
+      // Ideally UI hides this, but safety check:
+      if (!state.trainingMode) {
+          return { scenarioPreset: 'hard', ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
+      }
+      return { scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
+  }),
+  toggleTrainingMode: () => set((state) => {
+      const newMode = !state.trainingMode;
+      // Rule: If Training Mode is OFF, force Scenario C (Hard)
+      const newPreset = !newMode ? 'hard' : state.scenarioPreset;
+      return { trainingMode: newMode, scenarioPreset: newPreset };
+  }),
   resetSimulation: () => {
     const s = get();
     // Re-trigger load if needed, or just reset state
@@ -499,18 +552,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const shouldUpdateDisplay = !s.trainingMode || (new_tick_count % 10 === 0);
 
-    // --- Rules: Time-based Trigger (5sec) ---
-    // Replaces old fault_active logic with CSV rule
-    if (new_time >= 5.0 && !s.triggeredRules.has('5sec')) {
-        // Trigger generic '5sec' rule
-        s.triggerStepAction('5sec');
-        // We need to update triggeredRules manually here or inside triggerStepAction?
-        // triggerStepAction updates store state (which is 's' next frame), but we are in 'tick'.
-        // Better to set it in updates.
-        const newSet = new Set(s.triggeredRules);
-        newSet.add('5sec');
-        updates.triggeredRules = newSet;
-        updates.fault_active = true; // Keep for legacy compatibility if needed
+    // --- Rules: Time-based Triggers ---
+    // 10sec rule is now triggered at start via loadProcedureRules.
+    // We just need to ensure fault_active is set eventually if needed.
+    if (new_time >= 10.0 && !s.fault_active) {
+        updates.fault_active = true;
     }
 
     // 1. Reactor Logic
@@ -522,7 +568,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         updates.all_rods_down = false;
     }
     const reactivity_change = (target_reactivity - s.reactivity) * 0.1;
-    const new_reactivity = s.reactivity + reactivity_change;
+    // Clamp reactivity 0-100
+    const new_reactivity = Math.max(0, Math.min(100, s.reactivity + reactivity_change));
 
     // RCP effects Flow
     const target_pri_flow = s.rcp ? 45000 : 0;
@@ -631,7 +678,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }
 
     if (shouldUpdateDisplay) {
-        updates.display_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5, s.trainingMode);
+        // Clamp display reactivity 0-100
+        const raw_reactivity = addNoise(updates.reactivity ?? new_reactivity, 0.5, s.trainingMode);
+        updates.display_reactivity = Math.max(0, Math.min(100, raw_reactivity));
+
         updates.display_pri_flow = addNoise(updates.pri_flow ?? new_pri_flow, 500, s.trainingMode);
         updates.display_core_t = addNoise(updates.core_t ?? new_core_t, 1.0, s.trainingMode);
 
@@ -656,7 +706,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // Primary
     updates.rx_over_limit = final_reactivity > 102;
-    updates.core_temp_high = final_core_t > 330;
+    updates.core_temp_high = final_core_t > 400; // Updated Threshold
     updates.high_temp_high_rx_trip = updates.core_temp_high;
     updates.core_temp_low = final_core_t < 270 && final_reactivity > 10;
     updates.low_primary_coolant = final_pri_flow < 40000;
