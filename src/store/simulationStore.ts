@@ -444,19 +444,42 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   }),
 
   setScenarioPreset: (preset) => set((state) => {
-      // If Training Mode is OFF, enforce 'hard' (C) preset only.
-      // Ideally UI hides this, but safety check:
-      if (!state.trainingMode) {
-          return { scenarioPreset: 'hard', ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
-      }
-      return { scenarioPreset: preset, ...INITIAL_STATE, activeStepId: 'pc_st_01_01', stepHistory: [] };
-  }),
-  toggleTrainingMode: () => set((state) => {
-      const newMode = !state.trainingMode;
-      // Rule: If Training Mode is OFF, force Scenario C (Hard)
-      const newPreset = !newMode ? 'hard' : state.scenarioPreset;
-      return { trainingMode: newMode, scenarioPreset: newPreset };
-  }),
+    // If Training Mode is ON, force Scenario C (hard) and ignore user selection
+    if (state.trainingMode) {
+        return {
+        scenarioPreset: 'hard',
+        ...INITIAL_STATE,
+        activeStepId: 'pc_st_01_01',
+        stepHistory: []
+        };
+    }
+
+    // If Training Mode is OFF, allow user-selected scenario (A/B/C)
+    return {
+        scenarioPreset: preset,
+        ...INITIAL_STATE,
+        activeStepId: 'pc_st_01_01',
+        stepHistory: []
+    };
+    }),
+
+    toggleTrainingMode: () => set((state) => {
+    const newMode = !state.trainingMode;
+
+    // When turning Training Mode ON, force Scenario C (hard)
+    if (newMode) {
+        return {
+        trainingMode: true,
+        scenarioPreset: 'hard'
+        };
+    }
+
+    // When turning Training Mode OFF, keep current scenario and allow manual selection
+    return {
+        trainingMode: false
+    };
+    }),
+
   resetSimulation: () => {
     const s = get();
     // Re-trigger load if needed, or just reset state
