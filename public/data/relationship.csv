@@ -15,9 +15,7 @@ pc_st_06_03,pc_st_07_01,next,next,pc_06_03_n
 pc_st_07_01,pc_st_07_02,next,next,pc_07_01_n
 pc_st_07_02,pc_st_08_01,next,next,pc_07_02_n
 pc_st_08_01,pc_st_08_02,next,next,pc_08_01_n
-pc_st_08_02,pc_st_08_03,next,next,pc_08_02_n
 pc_st_09_01,pc_st_10_01,next,next,pc_09_01_n
-pc_st_10_01,pc_st_10_02,next,next,pc_10_01_n
 pc_st_10_02,pc_st_10_03,next,next,pc_10_02_n
 pc_st_01_01,an_01,verify,action,pc_01_01_s
 an_01,pc_ft_01_01_s,is,relationship,pc_01_01_s
@@ -31,9 +29,9 @@ pc_st_02_03,ic_11,check_if,action,pc_02_03_c
 ic_11,pc_ft_02_03_c,is,relationship,pc_02_03_c
 pc_ft_02_03_c,pc_in_02_03_t,TRUE,logical operation,pc_02_03_t
 pc_ft_02_03_c,pc_st_03_01,FALSE,logical operation,pc_02_03_f
-pc_st_03_01,ct_02,check_if,action,pc_03_01_c
-ct_02,pc_ft_03_01_c,is,relationship,pc_03_01_c
-pc_ft_03_01_c,ct_02,true_then_turn,action,pc_03_01_t
+pc_st_03_01,mc_02,check_if,action,pc_03_01_c
+mc_02,pc_ft_03_01_c,is,relationship,pc_03_01_c
+pc_ft_03_01_c,ct_02,TRUE,action,pc_03_01_t
 ct_02,pc_ft_03_01_t,to,relationship,pc_03_01_t
 pc_st_03_02,ic_11,check_if,action,pc_03_02_c
 ic_11,pc_ft_03_02_c,is,relationship,pc_03_02_c

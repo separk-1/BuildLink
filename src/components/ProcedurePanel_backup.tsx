@@ -203,7 +203,6 @@ export const ProcedurePanel = () => {
 
           if (isLink) {
               const conditionId = getId(isLink.target);
-              
               // Check if Condition Node has TRUE/FALSE edges
               const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
               const hasDecision = conditionLinks.some(l => l.label === 'TRUE' || l.label === 'FALSE');
@@ -215,17 +214,6 @@ export const ProcedurePanel = () => {
                   conditionLinks.forEach(l => set.add(getId(l.target)));
                   return set;
               }
-              
-             /*
-             set.add(conditionId);
-
-             const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
-             const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
-             const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
-
-             if (cTrueLink) set.add(getId(cTrueLink.target));
-             if (cFalseLink) set.add(getId(cFalseLink.target));
-             */
           }
       }
 
@@ -318,8 +306,8 @@ export const ProcedurePanel = () => {
       const links = graphData.links.filter(l => getId(l.source) === activeStepId);
 
       const verifyLink = links.find(l => l.label === 'verify');
-      const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE' || l.label === 'TRUE_then');
-      const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE' || l.label === 'FALSE_then');
+      const trueLink = links.find(l => l.label === 'true_then' || l.label === 'TRUE');
+      const falseLink = links.find(l => l.label === 'false_then' || l.label === 'FALSE');
       const nextLink = links.find(l => l.label === 'next' || l.label.startsWith('follow_next'));
       const genericLink = links.find(l => !['verify', 'true_then', 'false_then', 'if', 'check_if'].includes(l.label));
 
@@ -348,8 +336,8 @@ export const ProcedurePanel = () => {
               const conditionId = getTarget(isLink);
               const conditionLinks = graphData.links.filter(l => getId(l.source) === conditionId);
 
-              const cTrueLink = conditionLinks.find(l => typeof l.label === 'string' && l.label.startsWith('TRUE'));
-              const cFalseLink = conditionLinks.find(l => typeof l.label === 'string' && l.label.startsWith('FALSE'));
+              const cTrueLink = conditionLinks.find(l => l.label === 'TRUE');
+              const cFalseLink = conditionLinks.find(l => l.label === 'FALSE');
 
               if (cTrueLink || cFalseLink) {
                   return {
@@ -792,18 +780,8 @@ export const ProcedurePanel = () => {
                      <button
                         className="dcs-btn"
                         style={{ borderColor: '#22c55e', color: '#22c55e' }}
-                        //onClick={() => useSimulationStore.setState({ simulationEnded: true, fault_active: false, fwcv_continuous: 0.5, fwcv_degree: 0.5, sg_level: 50})}
-                     onClick={() => {
-                        const currentState = useSimulationStore.getState();
-                        if (currentState.scenarioPreset === 'hard') {
-                            useSimulationStore.setState({simulationEnded: true, fault_active: false});
-                        }
-                        else {
-                            useSimulationStore.setState({simulationEnded: true, fault_active: false, fwcv_continuous: 0.5, fwcv_degree: 0.5, sg_level: 50});
-                        }
-                    }}
+                        onClick={() => useSimulationStore.setState({ simulationEnded: true })}
                      >
-                        
                         COMPLETE SCENARIO
                     </button>
                 )}

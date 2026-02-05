@@ -159,10 +159,10 @@ const SchematicView = ({ state }: { state: any }) => {
       <DigitalGauge x={440} y={35} label="Steam Pressure" value={fmt(state.display_steam_press, 1)} unit="kg/cm²" width={100} />
 
       {/* Turbine Speed Control Valve - y=100 */}
-      <Valve x={550} y={100} open={true} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={100} open={state.turbine_speed_cv > 0.05} label="TSCV" fullName="TSCV (Turbine Speed Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Load Control Valve - y=200 */}
-      <Valve x={550} y={200} open={true} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
+      <Valve x={550} y={200} open={state.turbine_load_cv > 0.05} label="TLCV" fullName="TLCV (Turbin Load Control Valve)" scale={0.8} vertical={false} labelY={-20} />
 
       {/* Turbine Bypass Control Valve - y=300 */}
       <Valve x={550} y={300} open={state.turbine_bypass_cv > 0.05} label="TBCV" fullName="TBCV (Turbine Bypass Control Valve)" scale={0.8} vertical={false} labelY={-20} />
@@ -202,7 +202,7 @@ const SchematicView = ({ state }: { state: any }) => {
 
       {/* Turbine Speed (Top Right) */}
       {/* NO TOOLTIP */}
-      <DigitalGauge x={700} y={20} label="Turbine Spd" value={fmt(state.turbine_rpm, 0)} unit="rpm" width={100} />
+      <DigitalGauge x={700} y={20} label="Turbine Spd" value={fmt(state.display_turbine_rpm, 0)} unit="rpm" width={100} />
 
       {/* SG Level (On SG) */}
       {/* NO TOOLTIP */}
