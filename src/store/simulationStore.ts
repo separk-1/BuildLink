@@ -407,11 +407,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     // For scenario C
     if (s.fault_active && (s.scenarioPreset === 'hard')){
-        target_core_t = 440; 
+        target_core_t = 440 - s.turbine_bypass_cv*200; 
         if (s.safety_injection_engaged){
-        target_core_t = 420;
+        target_core_t = 420 - s.turbine_bypass_cv*200;
         }
-        target_core_t = target_core_t - s.turbine_bypass_cv*200;
     }
 
     // For scenario C (after step 10.3)

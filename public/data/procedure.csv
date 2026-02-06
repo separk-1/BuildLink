@@ -7,7 +7,7 @@
 If the Feedwater Flow has been restored, End procedure
 If the Feedwater Flow had not been restored, Go to step 3.1"
 3_1,"Check if the Feedwater Pump is OFF
-If the Feedwater Pump Switch is OFF, Turn the Feedwater Pump Switch to ON
+If the Feedwater Pump Switch is OFF, Turn the Feedwater Pump Switch to ON"
 3_2,"Check if the Feedwater Flow has been restored
 If the Feedwater Flow has been restored, End procedure
 If the Feedwater Flow had not been restored, Go to step 4.1"
@@ -23,11 +23,11 @@ If the Feedwater Flow had not been restored, Go to step 4.1"
 7_2,Verify that the Safety Injection Engaged Annunciator is illuminated
 8_1,Verify that the Reactor Core Temperature is decreasing
 8_2,"Check if the Reactor Core Temperature is below 392 DEG F
-If the Reactor Core Temperature is below 392 DEG F, Turn the Power Operated Relief Valve Isolation Valve (PORV IV) to CLOSED"
-If the Reactor Core Temperature is over 392 DEG F, Go to step 9.1"
-9_1,Turn the Recirculation Coolant Pump Switch to OFF
+If the Reactor Core Temperature is below 392 DEG F, Go to step 9.1
+If the Reactor Core Temperature is over 392 DEG F, Go to step 9.2"
+9_1,Turn the Power Operated Relief Valve Isolation Valve (PORV IV) to CLOSED
+9_2,Turn the Recirculation Coolant Pump Switch to OFF
 10_1,"Check if the Reactor Core Temperature is over 250 DEG F
 If the Reactor Core Temperature is over 250 DEG F, Slowly adjust the Turbine Bypass Control Valve up to 100%"
-If the Reactor Core Temperature is below 250 DEG F, End procedure"
 10_2,Verify that the Reactor Core Temperature is maintained below 250 DEG F
 10_3,Return the Turbine Bypass Control Valve to 0%
